@@ -22,9 +22,33 @@
   #:use-module (ice-9 rdelim)
   #:use-module (srfi srfi-64))
 
+;;
+;; logging helpers
+;;
+
+;; (begin
+;;   (define (log-message msg)
+;;     (display (format #f "\n~a\n" msg)))
+;;   (export log-message))
+
+;; (begin
+;;   (define (log-info msg . args)
+;;     ;;    (log-message (format #f "[INFO] ~a" (format #f msg args)))
+;;     (log-message (format #f msg args))
+;;     )
+;;   (export))
+
+;;
+;; string checks
+;;
+
 (define-public (non-empty-string? s)
   (and s
        (not (equal? "" s))))
+
+;;
+;; string manipulation
+;;
 
 (define-public (string-drop-first-last s)
   (if (> (string-length s) 2)
@@ -82,5 +106,10 @@
             (string-drop-first-last-line "first line\nlast line"))
 (test-equal "string-drop-first-last-line empty input" ""
             (string-drop-first-last-line ""))
+
+;; log tests
+
+;; (test-assert "log-info behaves as expected" (log-info "1 + 1 = ~a and 2 + 2 = ~a"
+;;                                                       (+ 1 1) (+ 2 2)))
 
 (test-end)
