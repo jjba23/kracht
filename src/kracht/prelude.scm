@@ -26,17 +26,30 @@
 ;; logging helpers
 ;;
 
-;; (begin
-;;   (define (log-message msg)
-;;     (display (format #f "\n~a\n" msg)))
-;;   (export log-message))
+(begin
+  (define (log-message msg)
+    (display (format #f "\n~a\n" msg)))
+  (export log-message))
 
-;; (begin
-;;   (define (log-info msg . args)
-;;     ;;    (log-message (format #f "[INFO] ~a" (format #f msg args)))
-;;     (log-message (format #f msg args))
-;;     )
-;;   (export))
+(begin
+  (define (log msg . args)
+    (log-message (apply format
+                        (append (list #f msg) args))))
+  (export log))
+
+(begin
+  (define (log-info msg . args)
+    (log-message (format #f "[INFO] ~a"
+                         (apply format
+                                (append (list #f msg) args)))))
+  (export log-info))
+
+(begin
+  (define (log-error msg . args)
+    (log-message (format #f "[ERROR] ~a"
+                         (apply format
+                                (append (list #f msg) args)))))
+  (export log-error))
 
 ;;
 ;; string checks
@@ -109,7 +122,23 @@
 
 ;; log tests
 
-;; (test-assert "log-info behaves as expected" (log-info "1 + 1 = ~a and 2 + 2 = ~a"
-;;                                                       (+ 1 1) (+ 2 2)))
+(test-assert "log-message behaves as expected"
+  (log-message (format #f "1 + 1 = ~a and 2 + 2 = ~a"
+                       (+ 1 1)
+                       (+ 2 2))))
+
+(test-assert "log behaves as expected"
+  (log-info "3 + 3 = ~a and 4 + 4 = ~a"
+            (+ 3 3)
+            (+ 4 4)))
+
+(test-assert "log-info behaves as expected"
+  (log-info "5 + 5 = ~a and 6 + 6 = ~a"
+            (+ 5 5)
+            (+ 6 6)))
+
+(test-assert "log-error behaves as expected"
+             (log-error "error ocurred: ~a"
+                        "something totally unexpected happened"))
 
 (test-end)
