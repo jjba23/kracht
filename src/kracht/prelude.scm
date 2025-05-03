@@ -83,6 +83,33 @@
     (string-join middle "\n")))
 
 ;;
+;; Asset library is an in-memory cache, a lookup dictionary
+;; that can be used for faster performance, memoization, etc
+;; this version will read from a list of files specifies with
+;; the FILES param
+;;
+;; to use it, you can simply call the function
+;; with a list of file paths:
+;;
+;; (define my-asset-library
+;;   (build-asset-library '("pub/css/fonts.css" "pub/js/tailwind.js")))
+;;
+
+(begin
+  (define* (build-asset-library files)
+    (let* ((lib '()))
+      (for-each (lambda (f)
+                  (let* ((file-contents (get-string-all (open-input-file f)))
+                         (min-contents (cond
+                                        ((string-suffix? ".css" f)
+                                         (string-replace-substring
+                                          file-contents "\n" ""))
+                                        (else file-contents))))
+                    (set! lib
+                          (assoc-set! lib f min-contents)))) files) lib))
+  (export build-asset-library))
+
+;;
 ;; module tests
 ;;
 
