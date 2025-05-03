@@ -19,6 +19,7 @@
   #:use-module (ice-9 string-fun)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 iconv)
+  #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
   #:use-module (srfi srfi-64))
 
