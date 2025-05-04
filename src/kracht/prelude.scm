@@ -84,6 +84,14 @@
     (string-join middle "\n")))
 
 ;;
+;; alist helpers
+;;
+
+(define-public (assoc-ref-or-empty-str alist field)
+  (let ((sut (assoc-ref alist field)))
+    (if (equal? #f sut) "" sut)))
+
+;;
 ;; Asset library is an in-memory cache, a lookup dictionary
 ;; that can be used for faster performance, memoization, etc
 ;; this version will read from a list of files specifies with
@@ -147,6 +155,31 @@
             (string-drop-first-last-line "first line\nlast line"))
 (test-equal "string-drop-first-last-line empty input" ""
             (string-drop-first-last-line ""))
+
+;; assoc-ref-or-empty-str tests
+(test-equal "empty alist"
+  (assoc-ref-or-empty-str '() 'key)
+  "")
+
+(test-equal "key not found"
+  (assoc-ref-or-empty-str '((a . 1) (b . 2)) 'c)
+  "")
+
+(test-equal "key found - string value"
+  (assoc-ref-or-empty-str '((a . 1) (b . "hello")) 'b)
+  "hello")
+
+(test-equal "key found - non-string value"
+  (assoc-ref-or-empty-str '((a . 1) (b . 2)) 'b)
+  2)
+
+(test-equal "key is first element"
+  (assoc-ref-or-empty-str '((key . "value") (b . 2)) 'key)
+  "value")
+
+(test-equal "key is last element"
+  (assoc-ref-or-empty-str '((a . 1) (b . 2) (key . "value")) 'key)
+  "value")
 
 ;; log tests
 
