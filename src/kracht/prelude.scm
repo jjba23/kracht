@@ -21,42 +21,44 @@
   #:use-module (ice-9 iconv)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
-  #:use-module (srfi srfi-64))
+  #:use-module (srfi srfi-64)
+  #:export (log-message log
+                        log-info
+                        log-error
+                        non-empty-string?
+                        string-drop-first-last
+                        string-drop-first-last-n
+                        string-drop-first-last-line
+                        assoc-ref-or-empty-str
+                        build-asset-library
+                        syscall))
 
 ;;
 ;; logging helpers
 ;;
 
-(begin
-  (define (log-message msg)
-    (display (format #f "\n~a\n" msg)))
-  (export log-message))
+(define (log-message msg)
+  (display (format #f "\n~a\n" msg)))
 
-(begin
-  (define (log msg . args)
-    (log-message (apply format
-                        (append (list #f msg) args))))
-  (export log))
+(define (log msg . args)
+  (log-message (apply format
+                      (append (list #f msg) args))))
 
-(begin
-  (define (log-info msg . args)
-    (log-message (format #f "[INFO] ~a"
-                         (apply format
-                                (append (list #f msg) args)))))
-  (export log-info))
+(define (log-info msg . args)
+  (log-message (format #f "[INFO] ~a"
+                       (apply format
+                              (append (list #f msg) args)))))
 
-(begin
-  (define (log-error msg . args)
-    (log-message (format #f "[ERROR] ~a"
-                         (apply format
-                                (append (list #f msg) args)))))
-  (export log-error))
+(define (log-error msg . args)
+  (log-message (format #f "[ERROR] ~a"
+                       (apply format
+                              (append (list #f msg) args)))))
 
 ;;
 ;; string checks
 ;;
 
-(define-public (non-empty-string? s)
+(define (non-empty-string? s)
   (and s
        (not (equal? "" s))))
 
@@ -64,19 +66,19 @@
 ;; string manipulation
 ;;
 
-(define-public (string-drop-first-last s)
+(define (string-drop-first-last s)
   (if (> (string-length s) 2)
 
       (string-take (string-drop s 1)
                    (- (string-length s) 2)) s))
 
-(define-public (string-drop-first-last-n s n)
+(define (string-drop-first-last-n s n)
   (if (> (string-length s) 2)
       (string-take (string-drop s n)
                    (- (string-length s)
                       (+ 1 n))) s))
 
-(define-public (string-drop-first-last-line s)
+(define (string-drop-first-last-line s)
   (let* ((lines (string-split s #\newline))
          (middle (if (> (length lines) 2)
                      (drop-right (cdr lines) 1)
@@ -87,7 +89,7 @@
 ;; alist helpers
 ;;
 
-(define-public (assoc-ref-or-empty-str alist field)
+(define (assoc-ref-or-empty-str alist field)
   (let ((sut (assoc-ref alist field)))
     (if (equal? #f sut) "" sut)))
 
@@ -104,19 +106,24 @@
 ;;   (build-asset-library '("pub/css/fonts.css" "pub/js/tailwind.js")))
 ;;
 
-(begin
-  (define* (build-asset-library files)
-    (let* ((lib '()))
-      (for-each (lambda (f)
-                  (let* ((file-contents (get-string-all (open-input-file f)))
-                         (min-contents (cond
-                                        ((string-suffix? ".css" f)
-                                         (string-replace-substring
-                                          file-contents "\n" ""))
-                                        (else file-contents))))
-                    (set! lib
-                          (assoc-set! lib f min-contents)))) files) lib))
-  (export build-asset-library))
+(define* (build-asset-library files)
+  (let* ((lib '()))
+    (for-each (lambda (f)
+                (let* ((file-contents (get-string-all (open-input-file f)))
+                       (min-contents (cond
+                                      ((string-suffix? ".css" f)
+                                       (string-replace-substring
+                                        file-contents "\n" ""))
+                                      (else file-contents))))
+                  (set! lib
+                        (assoc-set! lib f min-contents)))) files) lib))
+
+;; syscall
+
+(define (syscall cmd)
+  (let* ((process (open-input-pipe cmd))
+         (process-output (get-string-all process)))
+    (close-pipe process) process-output))
 
 ;;
 ;; module tests
@@ -158,45 +165,46 @@
 
 ;; assoc-ref-or-empty-str tests
 (test-equal "empty alist"
-  (assoc-ref-or-empty-str '() 'key)
-  "")
+            (assoc-ref-or-empty-str '()
+                                    'key) "")
 
 (test-equal "key not found"
-  (assoc-ref-or-empty-str '((a . 1) (b . 2)) 'c)
-  "")
+            (assoc-ref-or-empty-str '((a . 1) (b . 2))
+                                    'c) "")
 
 (test-equal "key found - string value"
-  (assoc-ref-or-empty-str '((a . 1) (b . "hello")) 'b)
-  "hello")
+            (assoc-ref-or-empty-str '((a . 1) (b . "hello"))
+                                    'b) "hello")
 
 (test-equal "key found - non-string value"
-  (assoc-ref-or-empty-str '((a . 1) (b . 2)) 'b)
-  2)
+            (assoc-ref-or-empty-str '((a . 1) (b . 2))
+                                    'b) 2)
 
 (test-equal "key is first element"
-  (assoc-ref-or-empty-str '((key . "value") (b . 2)) 'key)
-  "value")
+            (assoc-ref-or-empty-str '((key . "value") (b . 2))
+                                    'key) "value")
 
 (test-equal "key is last element"
-  (assoc-ref-or-empty-str '((a . 1) (b . 2) (key . "value")) 'key)
-  "value")
+            (assoc-ref-or-empty-str '((a . 1) (b . 2)
+                                      (key . "value"))
+                                    'key) "value")
 
 ;; log tests
 
 (test-assert "log-message behaves as expected"
-  (log-message (format #f "1 + 1 = ~a and 2 + 2 = ~a"
-                       (+ 1 1)
-                       (+ 2 2))))
+             (log-message (format #f "1 + 1 = ~a and 2 + 2 = ~a"
+                                  (+ 1 1)
+                                  (+ 2 2))))
 
 (test-assert "log behaves as expected"
-  (log-info "3 + 3 = ~a and 4 + 4 = ~a"
-            (+ 3 3)
-            (+ 4 4)))
+             (log-info "3 + 3 = ~a and 4 + 4 = ~a"
+                       (+ 3 3)
+                       (+ 4 4)))
 
 (test-assert "log-info behaves as expected"
-  (log-info "5 + 5 = ~a and 6 + 6 = ~a"
-            (+ 5 5)
-            (+ 6 6)))
+             (log-info "5 + 5 = ~a and 6 + 6 = ~a"
+                       (+ 5 5)
+                       (+ 6 6)))
 
 (test-assert "log-error behaves as expected"
              (log-error "error ocurred: ~a"
