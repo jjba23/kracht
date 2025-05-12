@@ -19,6 +19,8 @@
   #:use-module (ice-9 string-fun)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 iconv)
+  #:use-module (ice-9 readline)
+  #:use-module (ice-9 popen)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
   #:use-module (srfi srfi-64)
@@ -31,7 +33,8 @@
                         string-drop-first-last-line
                         assoc-ref-or-empty-str
                         build-asset-library
-                        syscall))
+                        syscall
+                        get-short-commit-sha))
 
 ;;
 ;; logging helpers
@@ -125,6 +128,9 @@
          (process-output (get-string-all process)))
     (close-pipe process) process-output))
 
+(define (get-short-commit-sha)
+  (syscall "git log --pretty=format:'%h' -n 1"))
+
 ;;
 ;; module tests
 ;;
@@ -207,7 +213,12 @@
                        (+ 6 6)))
 
 (test-assert "log-error behaves as expected"
-             (log-error "error ocurred: ~a"
-                        "something totally unexpected happened"))
+  (log-error "error ocurred: ~a"
+             "something totally unexpected happened"))
+
+;; sha
+
+(test-assert "get-short-commit-sha works as expected"
+  (write (get-short-commit-sha)))
 
 (test-end)
