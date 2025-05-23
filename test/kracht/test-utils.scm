@@ -15,13 +15,14 @@
 ;; You should have received a copy of the Lesser GNU General Public License
 ;; along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
-
 (define-module (kracht test-utils)
   #:export (define-test))
 
 (define-syntax define-test
   (syntax-rules ()
-    ((_ test-name e ...)
-     (begin
-       (define-public (test-name) e ...)
-       (set-procedure-property! test-name 'srfi-64-test? #t)))))
+                ((_ test-name e ...)
+                 (begin
+                   (define-public (test-name)
+                     e ...)
+                   (set-procedure-property! test-name
+                                            'srfi-64-test? #t)))))

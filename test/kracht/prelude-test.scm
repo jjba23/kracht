@@ -35,6 +35,14 @@
                          (test-equal "non-empty-string? with #t" #t
                                      (non-empty-string? #t)))
 
+             (test-group "empty-string? tests"
+                         (test-equal "empty-string? with non-empty string" #f
+                                     (empty-string? "hello"))
+                         (test-equal "empty-string? with empty string" #t
+                                     (empty-string? ""))
+                         (test-equal "empty-string? with whitespace" #f
+                                     (empty-string? " ")))
+
              (test-group "string-drop tests"
                          (test-equal "string-drop-first-last normal case"
                                      "ell"

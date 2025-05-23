@@ -26,6 +26,7 @@
                         log-info
                         log-error
                         non-empty-string?
+                        empty-string?
                         string-drop-first-last
                         string-drop-first-last-n
                         string-drop-first-last-line
@@ -62,6 +63,9 @@
 (define (non-empty-string? s)
   (and s
        (not (equal? "" s))))
+
+(define (empty-string? s)
+  (equal? "" s))
 
 ;;
 ;; string manipulation
@@ -112,10 +116,10 @@
     (for-each (lambda (f)
                 (let* ((file-contents (get-string-all (open-input-file f)))
                        (min-contents (cond
-                                      ((string-suffix? ".css" f)
-                                       (string-replace-substring
-                                        file-contents "\n" ""))
-                                      (else file-contents))))
+                                       ((string-suffix? ".css" f)
+                                        (string-replace-substring
+                                         file-contents "\n" ""))
+                                       (else file-contents))))
                   (set! lib
                         (assoc-set! lib f min-contents)))) files) lib))
 
