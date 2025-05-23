@@ -22,7 +22,6 @@
   #:use-module (ice-9 popen)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
-  #:use-module (srfi srfi-64)
   #:export (log-message log
                         log-info
                         log-error
@@ -129,95 +128,3 @@
 
 (define (get-short-commit-sha)
   (syscall "git log --pretty=format:'%h' -n 1"))
-
-;;
-;; module tests
-;;
-
-(test-begin "prelude")
-
-;; non-empty-string? tests
-(test-equal "non-empty-string? with non-empty string" #t
-            (non-empty-string? "hello"))
-(test-equal "non-empty-string? with empty string" #f
-            (non-empty-string? ""))
-(test-equal "non-empty-string? with whitespace" #t
-            (non-empty-string? " "))
-(test-equal "non-empty-string? with #f" #f
-            (non-empty-string? #f))
-(test-equal "non-empty-string? with #t" #t
-            (non-empty-string? #t))
-
-;; string-drop tests
-
-(test-equal "string-drop-first-last normal case" "ell"
-            (string-drop-first-last "hello"))
-(test-equal "string-drop-first-last single char" "a"
-            (string-drop-first-last "a"))
-(test-equal "string-drop-first-last two chars" "ab"
-            (string-drop-first-last "ab"))
-(test-equal "string-drop-first-last empty string" ""
-            (string-drop-first-last ""))
-
-(test-equal "string-drop-first-last-line normal case" "middle line"
-            (string-drop-first-last-line "first line\nmiddle line\nlast line"))
-(test-equal "string-drop-first-last-line single line" ""
-            (string-drop-first-last-line "single line"))
-(test-equal "string-drop-first-last-line two lines" ""
-            (string-drop-first-last-line "first line\nlast line"))
-(test-equal "string-drop-first-last-line empty input" ""
-            (string-drop-first-last-line ""))
-
-;; assoc-ref-or-empty-str tests
-(test-equal "empty alist"
-            (assoc-ref-or-empty-str '()
-                                    'key) "")
-
-(test-equal "key not found"
-            (assoc-ref-or-empty-str '((a . 1) (b . 2))
-                                    'c) "")
-
-(test-equal "key found - string value"
-            (assoc-ref-or-empty-str '((a . 1) (b . "hello"))
-                                    'b) "hello")
-
-(test-equal "key found - non-string value"
-            (assoc-ref-or-empty-str '((a . 1) (b . 2))
-                                    'b) 2)
-
-(test-equal "key is first element"
-            (assoc-ref-or-empty-str '((key . "value") (b . 2))
-                                    'key) "value")
-
-(test-equal "key is last element"
-            (assoc-ref-or-empty-str '((a . 1) (b . 2)
-                                      (key . "value"))
-                                    'key) "value")
-
-;; log tests
-
-(test-assert "log-message behaves as expected"
-             (log-message (format #f "1 + 1 = ~a and 2 + 2 = ~a"
-                                  (+ 1 1)
-                                  (+ 2 2))))
-
-(test-assert "log behaves as expected"
-             (log-info "3 + 3 = ~a and 4 + 4 = ~a"
-                       (+ 3 3)
-                       (+ 4 4)))
-
-(test-assert "log-info behaves as expected"
-             (log-info "5 + 5 = ~a and 6 + 6 = ~a"
-                       (+ 5 5)
-                       (+ 6 6)))
-
-(test-assert "log-error behaves as expected"
-  (log-error "error ocurred: ~a"
-             "something totally unexpected happened"))
-
-;; sha
-
-(test-assert "get-short-commit-sha works as expected"
-  (write (get-short-commit-sha)))
-
-(test-end)

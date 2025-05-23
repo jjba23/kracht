@@ -15,6 +15,8 @@
 # You should have received a copy of the Lesser GNU General Public License
 # along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
+.PHONY: test
+
 # Logging helpers
 
 define kracht-log-info
@@ -30,8 +32,14 @@ fmt:
 
 # Development REPL
 repl:
-	guix shell -m manifest.scm -- guile --fresh-auto-compile -c '((@ (ares server) run-nrepl-server))'
+	guix shell -m manifest.scm -- \
+		guile \
+		-L ./src \
+		-c '((@ (ares server) run-nrepl-server))'
 
 # Unit tests
 test:
-	guix shell -m manifest.scm -- guile --fresh-auto-compile run-tests.scm
+	guix shell -m manifest.scm -- \
+		guile -L ./src \
+		-L ./test \
+		-c "((@ (kracht test-runners) run-project-tests))"

@@ -1,24 +1,27 @@
-;; hygguile - cozy and professional user-interfaces for everyone
+;; kracht
 
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
 
-;; hygguile is free software: you can redistribute it and/or modify
+;; kracht is free software: you can redistribute it and/or modify
 ;; it under the terms of the Lesser GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
 
-;; hygguile is distributed in the hope that it will be useful,
+;; kracht is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; Lesser GNU General Public License for more details.
 
 ;; You should have received a copy of the Lesser GNU General Public License
-;; along with hygguile.  If not, see <https://www.gnu.org/licenses/>.
+;; along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
-(use-modules (ice-9 rdelim))
-(use-modules (srfi srfi-64))
 
-(define xs '("src/kracht/prelude.scm"
-             ))
+(define-module (kracht test-utils)
+  #:export (define-test))
 
-(for-each (lambda(x) (load x)) xs)
+(define-syntax define-test
+  (syntax-rules ()
+    ((_ test-name e ...)
+     (begin
+       (define-public (test-name) e ...)
+       (set-procedure-property! test-name 'srfi-64-test? #t)))))
