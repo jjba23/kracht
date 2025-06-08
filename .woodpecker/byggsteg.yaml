@@ -17,7 +17,7 @@
 
 steps:
   test-byggsteg-trigger-jointhefreeworld:
-    image: "jjba23/byggsteg-woodpecker:0.0.2"
+    image: "jjba23/byggsteg-woodpecker:0.0.3"
     when:
       - event: [ "push" ]
         branch: [ "trunk" ]
@@ -29,9 +29,7 @@ steps:
       BYGGSTEG_URL: "https://byggsteg.jointhefreeworld.org"
       BYGGSTEG_JOB_CODE: |
         (lambda()
-          `((project . "kracht")
-            (branch-name . "%%CI_COMMIT_BRANCH%%")
-            (task . "make-test")
-            (clone-url . "https://codeberg.org/jjba23/kracht")))      
-
-            
+          `((task . "make-test")
+            (project . "%%CI_REPO_NAME%%")
+            (branch-name . "%%CI_COMMIT_BRANCH%%")            
+            (clone-url . "%%CI_REPO_CLONE_URL%%")))      
