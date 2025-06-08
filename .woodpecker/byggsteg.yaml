@@ -78,6 +78,7 @@ steps:
               fi      
 
               if [ "$BYGGSTEG_JOB_IN_PROGRESS" == 1 ]; then
+                  cat byggsteg-log-response.json | jq -r '.["log-data"]'
                   log-info "Byggsteg job in progress... will poll again for status in $POLL_INTERVAL_SECONDS seconds"
                   sleep "$POLL_INTERVAL_SECONDS"
               fi
