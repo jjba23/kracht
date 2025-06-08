@@ -22,6 +22,9 @@ steps:
       - event: [ "push" ]
         branch: [ "trunk" ]        
     environment:
+      POLL_INTERVAL_SECONDS: 6
+      POLL_LIMIT: 1024
+      POLL_COUNT: 0       
       BYGGSTEG_URL: "https://byggsteg.jointhefreeworld.org" 
       BYGGSTEG_KEY:
         from_secret: "BYGGSTEG_KEY"
@@ -33,34 +36,37 @@ steps:
           (task . "make-test")
           (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
-      echo -e "Installing base packages"
-      apk add curl jq
-      
-      echo -e "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
-      curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
-        -X POST \
-        -H 'Content-Type: application/x-www-form-urlencoded' \
-        --data-urlencode "username=$BYGGSTEG_USERNAME" \
-        --data-urlencode "password=$BYGGSTEG_KEY" \
-        --data-urlencode "job-code=$JOB_CODE" \
-            > byggsteg-submit-job-response.json
-      cat byggsteg-submit-job-response.json | jq .
-      
-      BYGGSTEG_LOG_ID=$(cat byggsteg-submit-job-response.json | jq -r '.["log-id"]')
-      
-      echo -e "Job created at Byggsteg successfully, log-id: $BYGGSTEG_LOG_ID"
+      set -euo pipefail;
 
-      POLL_INTERVAL_SECONDS=6
-      POLL_LIMIT=1024
-      POLL_COUNT=0
-      
-      function poll-for-job-success {
+      get-timestamp() {
+        date '+%Y-%m-%d %H:%M:%S%:z'
+      }
+
+      log-error() {
+        if [ -z "$1" ]; then
+          log-error "log-error was called without a message."
+          return 1
+        fi
+
+        echo -e "[ERROR][$(get-timestamp)] $1" >&2
+      }
+
+      log-info() {
+        if [ -z "$1" ]; then
+          log-error "log-info was called without a message."
+          return 1
+        fi
+
+        echo -e "[INFO][$(get-timestamp)] $1"
+      }
+
+      poll-for-job-success() {
           if [ "$POLL_COUNT" == "$POLL_LIMIT" ]; then
-              echo -e "Reached limit poll attempts ($POLL_LIMIT), pipeline failed"
+              log-error "Reached limit poll attempts ($POLL_LIMIT), pipeline failed"
               exit 1
           fi
           
-          echo -e "GET call to $BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID"      
+          log-info "GET call to $BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID"      
           curl -s "$BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID" \
               > byggsteg-log-response.json
           cat byggsteg-log-response.json | jq .
@@ -72,21 +78,40 @@ steps:
           BYGGSTEG_JOB_IN_PROGRESS=$(cat byggsteg-log-response.json | jq -r '.["in-progress"]')
 
           if [ "$BYGGSTEG_JOB_SUCCEEDED" == 1 ]; then
-              echo "Byggsteg job completed successfully!"
+              log-info "Byggsteg job completed successfully!"
               exit 0
           fi
 
           if [ "$BYGGSTEG_JOB_FAILED == 1 ]; then
-              echo "Byggsteg job faild!"
+              log-error "Byggsteg job faild!"
               exit 1
           fi      
 
           if [ "$BYGGSTEG_JOB_IN_PROGRESS == 1 ]; then
-              echo "Byggsteg job in progress... will poll again for status in $POLL_INTERVAL_SECONDS seconds"
+              log-info "Byggsteg job in progress... will poll again for status in $POLL_INTERVAL_SECONDS seconds"
               sleep "$POLL_INTERVAL_SECONDS"
               poll-for-job-success
           fi            
-      }
+      }      
+
+      # ==========================================
+      
+      log-info "Installing base packages"
+      apk add curl jq
+      
+      log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
+      curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
+        -X POST \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        --data-urlencode "username=$BYGGSTEG_USERNAME" \
+        --data-urlencode "password=$BYGGSTEG_KEY" \
+        --data-urlencode "job-code=$JOB_CODE" \
+            > byggsteg-submit-job-response.json
+      cat byggsteg-submit-job-response.json | jq .
+      
+      BYGGSTEG_LOG_ID=$(cat byggsteg-submit-job-response.json | jq -r '.["log-id"]')
+      
+      log-info "Job created at Byggsteg successfully, log-id: $BYGGSTEG_LOG_ID"
 
       poll-for-job-success
 
