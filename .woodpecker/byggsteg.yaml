@@ -36,7 +36,7 @@ steps:
       JOB_CODE: |
         (lambda()
         `((project . "kracht")
-          (branch-name . "trunk")
+          (branch-name . "$CI_COMMIT_BRANCH")
           (task . "make-test")
           (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
@@ -91,13 +91,15 @@ steps:
           log-info "Installing base packages on Alpine distribution"
           apk add --no-cache curl jq
 
+          BYGGSTEG_JOB_CODE=$(echo -e "$JOB_CODE")
+
           log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
           curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
             -X POST \
             -H 'Content-Type: application/x-www-form-urlencoded' \
             --data-urlencode "username=$BYGGSTEG_USERNAME" \
             --data-urlencode "password=$BYGGSTEG_KEY" \
-            --data-urlencode "job-code=$JOB_CODE" \
+            --data-urlencode "job-code=$BYGGSTEG_JOB_CODE" \
                 > byggsteg-submit-job-response.json
           cat byggsteg-submit-job-response.json | jq .
 
