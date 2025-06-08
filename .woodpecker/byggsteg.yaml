@@ -24,7 +24,10 @@ steps:
     environment:
       POLL_INTERVAL_SECONDS: 6
       POLL_LIMIT: 1024
-      POLL_COUNT: 0       
+      POLL_COUNT: 0
+      BYGGSTEG_JOB_SUCCEEDED: 0
+      BYGGSTEG_JOB_FAILED: 0
+      BYGGSTEG_JOB_IN_PROGRESS: 0
       BYGGSTEG_URL: "https://byggsteg.jointhefreeworld.org" 
       BYGGSTEG_KEY:
         from_secret: "BYGGSTEG_KEY"
@@ -92,9 +95,7 @@ steps:
               sleep "$POLL_INTERVAL_SECONDS"
               poll-for-job-success
           fi            
-      }      
-
-      # ==========================================
+      }
       
       log-info "Installing base packages"
       apk add curl jq
