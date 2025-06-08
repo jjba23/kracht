@@ -17,7 +17,7 @@
 
 steps:
   test-byggsteg-trigger-jointhefreeworld:
-    image: "jjba23/byggsteg-woodpecker:0.0.1"
+    image: "jjba23/byggsteg-woodpecker:0.0.2"
     when:
       - event: [ "push" ]
         branch: [ "trunk" ]
