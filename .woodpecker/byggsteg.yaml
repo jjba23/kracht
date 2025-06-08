@@ -65,7 +65,7 @@ steps:
       }
 
       poll-for-job-success() {
-          while [ "$poll_count" -lt "$POLL_LIMIT" ]; do        
+          while [ "$POLL_COUNT" -lt "$POLL_LIMIT" ]; do        
               log-info "GET call to $BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID"      
               curl -s "$BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID" \
                   > byggsteg-log-response.json
