@@ -36,7 +36,7 @@ steps:
       JOB_CODE: |
         (lambda()
         `((project . "kracht")
-          (branch-name . "$CI_COMMIT_BRANCH")
+          (branch-name . "trunk")
           (task . "make-test")
           (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
