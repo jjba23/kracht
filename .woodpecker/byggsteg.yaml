@@ -91,7 +91,14 @@ steps:
           log-info "Installing base packages on Alpine distribution"
           apk add --no-cache curl jq
 
-          BYGGSTEG_JOB_CODE=$(echo -e "$JOB_CODE")
+          BYGGSTEG_JOB_CODE=$(cat <<EOF
+              (lambda()
+              `((project . "kracht")
+                (branch-name . "$CI_COMMIT_BRANCH")
+                (task . "make-test")
+                (clone-url . "https://codeberg.org/jjba23/kracht")))
+          EOF
+          )
 
           log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
           curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
