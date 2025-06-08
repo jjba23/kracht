@@ -22,8 +22,6 @@ steps:
       - event: [ "push" ]
         branch: [ "trunk" ]
     settings:
-      POLL_INTERVAL_SECONDS: 8
-      POLL_LIMIT: 2048      
       BYGGSTEG_USERNAME:
         from_secret: "BYGGSTEG_USERNAME"
       BYGGSTEG_KEY:
@@ -32,7 +30,6 @@ steps:
       BYGGSTEG_JOB_CODE: |
         (lambda()
           `((project . "kracht")
-            (branch-name . "trunk")
+            (branch-name . "$$CI_COMMIT_BRANCH$$")
             (task . "make-test")
             (clone-url . "https://codeberg.org/jjba23/kracht")))      
-      
