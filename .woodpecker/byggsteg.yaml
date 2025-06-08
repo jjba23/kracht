@@ -65,58 +65,61 @@ steps:
       }
 
       poll-for-job-success() {
-          if [ "$POLL_COUNT" == "$POLL_LIMIT" ]; then
-              log-error "Reached limit poll attempts ($POLL_LIMIT), pipeline failed"
-              exit 1
-          fi
-          
-          log-info "GET call to $BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID"      
-          curl -s "$BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID" \
-              > byggsteg-log-response.json
-          cat byggsteg-log-response.json | jq .
-          
-          POLL_COUNT=$(( POLL_COUNT + 1 ))
+          while [ "$poll_count" -lt "$POLL_LIMIT" ]; do        
+              log-info "GET call to $BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID"      
+              curl -s "$BYGGSTEG_URL/api/v1/logs/$BYGGSTEG_LOG_ID" \
+                  > byggsteg-log-response.json
+              cat byggsteg-log-response.json | jq .
 
-          BYGGSTEG_JOB_SUCCEEDED=$(cat byggsteg-log-response.json | jq -r '.["success"]')
-          BYGGSTEG_JOB_FAILURE=$(cat byggsteg-log-response.json | jq -r '.["failure"]')
-          BYGGSTEG_JOB_IN_PROGRESS=$(cat byggsteg-log-response.json | jq -r '.["in-progress"]')
+              POLL_COUNT=$(( POLL_COUNT + 1 ))
 
-          if [ "$BYGGSTEG_JOB_SUCCEEDED" == 1 ]; then
-              log-info "Byggsteg job completed successfully!"
-              exit 0
-          fi
+              BYGGSTEG_JOB_SUCCEEDED=$(cat byggsteg-log-response.json | jq -r '.["success"]')
+              BYGGSTEG_JOB_FAILURE=$(cat byggsteg-log-response.json | jq -r '.["failure"]')
+              BYGGSTEG_JOB_IN_PROGRESS=$(cat byggsteg-log-response.json | jq -r '.["in-progress"]')
 
-          if [ "$BYGGSTEG_JOB_FAILED" == 1 ]; then
-              log-error "Byggsteg job failed!"
-              exit 1
-          fi      
+              if [ "$BYGGSTEG_JOB_SUCCEEDED" == 1 ]; then
+                  log-info "Byggsteg job completed successfully!"
+                  exit 0
+              fi
 
-          if [ "$BYGGSTEG_JOB_IN_PROGRESS" == 1 ]; then
-              log-info "Byggsteg job in progress... will poll again for status in $POLL_INTERVAL_SECONDS seconds"
-              sleep "$POLL_INTERVAL_SECONDS"
-              poll-for-job-success
-          fi            
+              if [ "$BYGGSTEG_JOB_FAILED" == 1 ]; then
+                  log-error "Byggsteg job failed!"
+                  exit 1
+              fi      
+
+              if [ "$BYGGSTEG_JOB_IN_PROGRESS" == 1 ]; then
+                  log-info "Byggsteg job in progress... will poll again for status in $POLL_INTERVAL_SECONDS seconds"
+                  sleep "$POLL_INTERVAL_SECONDS"
+              fi
+          done
+
+          log-error "Reached limit of poll attempts ($POLL_LIMIT), pipeline failed"
+          exit 1          
       }
       
-      log-info "Installing base packages"
-      apk add curl jq
-      
-      log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
-      curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
-        -X POST \
-        -H 'Content-Type: application/x-www-form-urlencoded' \
-        --data-urlencode "username=$BYGGSTEG_USERNAME" \
-        --data-urlencode "password=$BYGGSTEG_KEY" \
-        --data-urlencode "job-code=$JOB_CODE" \
-            > byggsteg-submit-job-response.json
-      cat byggsteg-submit-job-response.json | jq .
-      
-      BYGGSTEG_LOG_ID=$(cat byggsteg-submit-job-response.json | jq -r '.["log-id"]')
-      
-      log-info "Job created at Byggsteg successfully, log-id: $BYGGSTEG_LOG_ID"
+      main() {
+          log-info "Installing base packages on Alpine distribution"
+          apk add --no-cache curl jq
 
-      poll-for-job-success
+          log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
+          curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
+            -X POST \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "username=$BYGGSTEG_USERNAME" \
+            --data-urlencode "password=$BYGGSTEG_KEY" \
+            --data-urlencode "job-code=$JOB_CODE" \
+                > byggsteg-submit-job-response.json
+          cat byggsteg-submit-job-response.json | jq .
 
+          BYGGSTEG_LOG_ID=$(cat byggsteg-submit-job-response.json | jq -r '.["log-id"]')
+          log-info "Job created at Byggsteg successfully, log-id: $BYGGSTEG_LOG_ID"
+
+          # start polling for job status until success or limit reached
+          poll-for-job-success      
+      }
+
+      # Run the main function
+      main
 
 
 
