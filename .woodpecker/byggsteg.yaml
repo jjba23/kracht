@@ -42,7 +42,7 @@ steps:
         --data-urlencode "job-code=$JOB_CODE" \
             > byggsteg-submit-job-response.json
       cat byggsteg-submit-job-response.json | jq .
-      LOG_ID=$(cat byggsteg-response-job-submit.json | jq -r '.["log-id"]')
+      LOG_ID=$(cat byggsteg-submit-job-response.json | jq -r '.["log-id"]')
       echo -e "Job created at Byggsteg successfully, log-id: $LOG_ID"
       echo -e "Inspecting Byggsteg log-id: $LOG_ID"
       curl "$BYGGSTEG_URL/api/v1/logs/$LOG_ID"
