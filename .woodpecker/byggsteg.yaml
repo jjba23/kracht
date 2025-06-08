@@ -91,7 +91,8 @@ steps:
           log-info "Installing base packages on Alpine distribution"
           apk add --no-cache curl jq
 
-          BYGGSTEG_JOB_CODE=$(echo "$JOB_CODE" | sed "s#\"\\\$CI_COMMIT_BRANCH\"#\"$CI_COMMIT_BRANCH\"#g")
+          echo -e "$JOB_CODE"
+          BYGGSTEG_JOB_CODE=$(echo -e "$JOB_CODE" | sed "s#\"\\\$CI_COMMIT_BRANCH\"#\"$CI_COMMIT_BRANCH\"#g")
 
           log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
           curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
