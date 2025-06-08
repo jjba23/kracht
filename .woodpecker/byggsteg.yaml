@@ -28,14 +28,15 @@ steps:
       BYGGSTEG_JOB_SUCCEEDED: 0
       BYGGSTEG_JOB_FAILED: 0
       BYGGSTEG_JOB_IN_PROGRESS: 0
-      BYGGSTEG_URL: "https://byggsteg.jointhefreeworld.org" 
+      BYGGSTEG_URL: "https://byggsteg.jointhefreeworld.org"
+      BYGGSTEG_USERNAME:
+        from_secret: "BYGGSTEG_USERNAME"
       BYGGSTEG_KEY:
         from_secret: "BYGGSTEG_KEY"
-      BYGGSTEG_USERNAME: "Joe"
       JOB_CODE: |
         (lambda()
         `((project . "kracht")
-          (branch-name . "trunk")
+          (branch-name . "$CI_COMMIT_BRANCH")
           (task . "make-test")
           (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
