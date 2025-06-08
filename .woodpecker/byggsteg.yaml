@@ -33,7 +33,7 @@ steps:
           (task . "make-test")
           (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
-      apk add curl
+      apk add curl jq
       curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
         -X POST \
         -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -41,6 +41,11 @@ steps:
         --data-urlencode "password=$BYGGSTEG_KEY" \
         --data-urlencode "job-code=$JOB_CODE" \
             > byggsteg-submit-job-response.json
-      cat byggsteg-submit-job-response.json
+      cat byggsteg-submit-job-response.json | jq .
+      LOG_ID=$(cat byggsteg-response-job-submit.json | jq -r '.["log-id"]')
+      echo -e "Job created at Byggsteg successfully, log-id: $LOG_ID"
+      echo -e "Inspecting Byggsteg log-id: $LOG_ID"
+      curl "$BYGGSTEG_URL/api/v1/logs/$LOG_ID"
+      
       
 
