@@ -54,7 +54,7 @@ steps:
       POLL_LIMIT=1024
       POLL_COUNT=0
       
-      function poll-for-job-success() {
+      function poll-for-job-success {
           if [ "$POLL_COUNT" == "$POLL_LIMIT" ]; then
               echo -e "Reached limit poll attempts ($POLL_LIMIT), pipeline failed"
               exit 1
