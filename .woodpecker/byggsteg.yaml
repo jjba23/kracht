@@ -65,7 +65,7 @@ steps:
               > byggsteg-log-response.json
           cat byggsteg-log-response.json | jq .
           
-          POLL_COUNT+=1
+          POLL_COUNT=$(( POLL_COUNT + 1 ))
 
           BYGGSTEG_JOB_SUCCEEDED=$(cat byggsteg-log-response.json | jq -r '.["success"]')
           BYGGSTEG_JOB_FAILURE=$(cat byggsteg-log-response.json | jq -r '.["failure"]')
