@@ -47,21 +47,11 @@ steps:
       }
 
       log-error() {
-        if [ -z "$1" ]; then
-          log-error "log-error was called without a message."
-          return 1
-        fi
-
-        echo -e "[ERROR][$(get-timestamp)] $1" >&2
+        echo -e "\n[ERROR][$(get-timestamp)] $1\n" >&2
       }
 
       log-info() {
-        if [ -z "$1" ]; then
-          log-error "log-info was called without a message."
-          return 1
-        fi
-
-        echo -e "[INFO][$(get-timestamp)] $1"
+        echo -e "\n[INFO][$(get-timestamp)] $1\n"
       }
 
       poll-for-job-success() {
@@ -115,7 +105,7 @@ steps:
           log-info "Job created at Byggsteg successfully, log-id: $BYGGSTEG_LOG_ID"
 
           # start polling for job status until success or limit reached
-          poll-for-job-success      
+          poll-for-job-success
       }
 
       # Run the main function
