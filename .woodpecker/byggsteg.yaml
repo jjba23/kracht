@@ -16,14 +16,14 @@
 # along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
 steps:
-  byggsteg-trigger-jointhefreeworld:
+  test-byggsteg-trigger-jointhefreeworld:
     image: "alpine:3.22.0"
     when:
       - event: [ "push" ]
         branch: [ "trunk" ]        
     environment:
-      POLL_INTERVAL_SECONDS: 6
-      POLL_LIMIT: 1024
+      POLL_INTERVAL_SECONDS: 8
+      POLL_LIMIT: 2048
       POLL_COUNT: 0
       BYGGSTEG_JOB_SUCCEEDED: 0
       BYGGSTEG_JOB_FAILED: 0
