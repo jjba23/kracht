@@ -68,11 +68,13 @@ steps:
               BYGGSTEG_JOB_IN_PROGRESS=$(cat byggsteg-log-response.json | jq -r '.["in-progress"]')
 
               if [ "$BYGGSTEG_JOB_SUCCEEDED" == 1 ]; then
+                  cat byggsteg-log-response.json | jq -r '.["log-data"]'
                   log-info "Byggsteg job completed successfully!"
                   exit 0
               fi
 
               if [ "$BYGGSTEG_JOB_FAILED" == 1 ]; then
+                  cat byggsteg-log-response.json | jq -r '.["log-data"]'
                   log-error "Byggsteg job failed!"
                   exit 1
               fi      
