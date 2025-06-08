@@ -33,10 +33,10 @@ steps:
         from_secret: "BYGGSTEG_USERNAME"
       BYGGSTEG_KEY:
         from_secret: "BYGGSTEG_KEY"
-      JOB_CODE: |
+      BYGGSTEG_JOB_CODE: |
         (lambda()
-          \`((project . "kracht")
-            (branch-name . "$CI_COMMIT_BRANCH")
+          `((project . "kracht")
+            (branch-name . "trunk")
             (task . "make-test")
             (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
@@ -90,10 +90,6 @@ steps:
       main() {
           log-info "Installing base packages on Alpine distribution"
           apk add --no-cache curl jq
-
-
-          BYGGSTEG_JOB_CODE=$(eval "echo \"$JOB_CODE\"")
-          echo -e "$BYGGSTEG_JOB_CODE"          
 
           log-info "POST call to $BYGGSTEG_URL/api/v1/jobs/manage/submit"
           curl -s "$BYGGSTEG_URL/api/v1/jobs/manage/submit" \
