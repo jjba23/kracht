@@ -33,12 +33,6 @@ steps:
         from_secret: "BYGGSTEG_USERNAME"
       BYGGSTEG_KEY:
         from_secret: "BYGGSTEG_KEY"
-      JOB_CODE: |
-        (lambda()
-        `((project . "kracht")
-          (branch-name . "$CI_COMMIT_BRANCH")
-          (task . "make-test")
-          (clone-url . "https://codeberg.org/jjba23/kracht")))
     commands: |
       set -euo pipefail;
 
