@@ -19,6 +19,8 @@
   #:use-module (ice-9 string-fun)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 iconv)
+  #:use-module (ice-9 time)
+  #:use-module (ice-9 format)
   #:use-module (ice-9 popen)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
@@ -33,6 +35,8 @@
                         assoc-ref-or-empty-str
                         build-asset-library
                         syscall
+                        html-escape
+                        html-unescape
                         get-short-commit-sha))
 
 ;;
@@ -132,3 +136,70 @@
 
 (define (get-short-commit-sha)
   (syscall "git log --pretty=format:'%h' -n 1"))
+
+(define html-escape-alist
+  '(("'" "&apos;")
+    ("\"" "&quot;")
+    ("á" "&aacute;")
+    ("à" "&agrave;")
+    ("Á" "&Aacute;")
+    ("À" "&Agrave;")
+    ("é" "&eacute;")
+    ("è" "&egrave;")
+    ("É" "&Eacute;")
+    ("È" "&Egrave;")
+    ("í" "&iacute;")
+    ("ì" "&igrave;")
+    ("Í" "&Iacute;")
+    ("Ì" "&Igrave;")
+    ("ó" "&oacute;")
+    ("ò" "&ograve;")
+    ("Ó" "&Oacute;")
+    ("Ò" "&Ograve;")
+    ("ú" "&uacute;")
+    ("ù" "&ugrave;")
+    ("Ú" "&Uacute;")
+    ("Ù" "&Ugrave;")
+    ("ç" "&ccedil;")
+    ("Ç" "&Ccedil;")
+    ("ñ" "&ntilde;")
+    ("Ñ" "&Ntilde;")
+    ("<" "&lt;")
+    (">" "&gt;")
+    ("/" "&sol;")
+    ("*" "&ast;")
+    ("å" "&aring;")
+    ("æ" "&aelig;")
+    ("ë" "&euml;")
+    ("ï" "&iuml;")
+    ("ô" "&ocirc;")
+    ("ö" "&ouml;")
+    ("ø" "&oslash;")
+    ("û" "&ucirc;")
+    ("ü" "&uuml;")
+    ("ä" "&auml;")
+    ("â" "&acirc;")
+    ("ß" "&szlig;")
+    ("Ü" "&Uuml;")
+    ("Ö" "&Ouml;")
+    ("Ë" "&Euml;")
+    ("Ä" "&Auml;")
+    ("Ï" "&Iuml;")
+    ("$" "&dollar;")
+    ("%" "&percnt;")
+    ("ã" "&atilde;")
+    ("Ã" "&Atilde;")
+    ("õ" "&otilde;")
+    ("Õ" "&Otilde;")))
+
+(define (html-escape x)
+  (fold (lambda (entity accum)
+          (string-replace-substring accum
+                                    (car entity)
+                                    (cadr entity))) x html-escape-alist))
+
+(define (html-unescape x)
+  (fold (lambda (entity accum)
+          (string-replace-substring accum
+                                    (cadr entity)
+                                    (car entity))) x html-escape-alist))

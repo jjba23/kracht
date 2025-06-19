@@ -120,4 +120,99 @@
 
              (test-group "sha"
                          (test-assert "get-short-commit-sha works as expected"
-                          (write (get-short-commit-sha)))))
+                          (write (get-short-commit-sha))))
+
+             (test-group "html-escape tests"
+                         (test-equal "Empty string" ""
+                                     (html-escape ""))
+                         (test-equal "String with no special characters"
+                                     "Hello, World!"
+                                     (html-escape "Hello, World!"))
+                         (test-equal "Single quote" "&apos;"
+                                     (html-escape "'"))
+                         (test-equal "Double quote" "&quot;"
+                                     (html-escape "\""))
+                         (test-equal "Mix of quotes"
+                                     "He&apos;s a &quot;guy&quot;."
+                                     (html-escape "He's a \"guy\"."))
+                         (test-equal "Accented a" "&aacute;"
+                                     (html-escape "á"))
+                         (test-equal "Accented A" "&Aacute;"
+                                     (html-escape "Á"))
+                         (test-equal "Accented e" "&eacute;"
+                                     (html-escape "é"))
+                         (test-equal "Accented E" "&Eacute;"
+                                     (html-escape "É"))
+                         (test-equal "Accented i" "&iacute;"
+                                     (html-escape "í"))
+                         (test-equal "Accented I" "&Iacute;"
+                                     (html-escape "Í"))
+                         (test-equal "Accented o" "&oacute;"
+                                     (html-escape "ó"))
+                         (test-equal "Accented O" "&Oacute;"
+                                     (html-escape "Ó"))
+                         (test-equal "Accented u" "&uacute;"
+                                     (html-escape "ú"))
+                         (test-equal "Accented U" "&Uacute;"
+                                     (html-escape "Ú"))
+                         (test-equal "C-cedilla" "&ccedil;"
+                                     (html-escape "ç"))
+                         (test-equal "N-tilde" "&ntilde;"
+                                     (html-escape "ñ"))
+                         (test-equal "Multiple accents"
+                                     "&Aacute;rvore &eacute; bonita"
+                                     (html-escape "Árvore é bonita"))
+                         (test-equal "String with multiple occurrences"
+                          "He said, &quot;It&apos;s a beautiful day!&quot;"
+                          (html-escape "He said, \"It's a beautiful day!\""))
+                         (test-equal "Example sentence escaped"
+                          "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste."
+                          (html-escape "Ólá, múndo! Isto é um teste.")))
+
+             (test-group "html-unescape tests"
+                         (test-equal "Empty string" ""
+                                     (html-unescape ""))
+                         (test-equal "String with no entities" "Hello, World!"
+                                     (html-unescape "Hello, World!"))
+                         (test-equal "Single apos entity" "'"
+                                     (html-unescape "&apos;"))
+                         (test-equal "Single quot entity" "\""
+                                     (html-unescape "&quot;"))
+                         (test-equal "Mix of entities" "He's a \"guy\"."
+                                     (html-unescape
+                                      "He&apos;s a &quot;guy&quot;."))
+                         (test-equal "Accented a entity" "á"
+                                     (html-unescape "&aacute;"))
+                         (test-equal "Accented A entity" "Á"
+                                     (html-unescape "&Aacute;"))
+                         (test-equal "C-cedilla entity" "ç"
+                                     (html-unescape "&ccedil;"))
+                         (test-equal "Multiple entity occurrences"
+                                     "It's a \"quote\"."
+                                     (html-unescape
+                                      "It&apos;s a &quot;quote&quot;."))
+                         (test-equal "Example sentence unescaped"
+                                     "Ólá, múndo! Isto é um teste."
+                                     (html-unescape
+                                      "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste.")))
+
+             (test-group "Round-trip tests"
+                         (test-equal "Escape then unescape"
+                                     "Hello, it's a \"test\" with áéíóú."
+                                     (html-unescape (html-escape
+                                                     "Hello, it's a \"test\" with áéíóú.")))
+                         (test-equal "Example sentence"
+                                     "Olá, múndo! Isto é um teste."
+                                     (html-unescape (html-escape
+                                                     "Olá, múndo! Isto é um teste.")))
+                         (test-equal
+                          "Unescape then escape (assuming valid entities)"
+                          "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"
+                          (html-escape (html-unescape
+                                        "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;")))
+                         (test-equal
+                          "Unescape then escape (for chars in alist)"
+                          "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;"
+                          (html-escape (html-unescape
+                                        "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;")))))
+
