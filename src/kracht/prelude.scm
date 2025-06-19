@@ -233,9 +233,3 @@ warning! could not decode pair ~a: ~a: ~a
     (if (equal? result
                 '(("" . "")))
         '() result)))
-
-;; (alist-from-url-encoded-body (string->utf8 "name=John%20Doe"))
-
-;; (alist-from-url-encoded-body (string->utf8  "a=1&b&c=3"))
-
-;; (alist-from-url-encoded-body (string->utf8 "key1&key2"))

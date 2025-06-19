@@ -73,8 +73,7 @@
                                                                    "key-only")))
 
                          (test-equal "multiple keys, no equals sign"
-                                     '(("key1" . "")
-                                       ("key2" . ""))
+                                     '(("key1" . "") ("key2" . ""))
                                      (alist-from-url-encoded-body (string->utf8
                                                                    "key1&key2")))
 
@@ -82,7 +81,104 @@
                                      '(("a" . "1") ("b" . "")
                                        ("c" . "3"))
                                      (alist-from-url-encoded-body (string->utf8
-                                                                   "a=1&b&c=3"))))
+                                                                   "a=1&b&c=3")))
+                         (test-equal "space character (%20)"
+                                     '(("message" . "hello world"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "message=hello%20world")))
+
+                         (test-equal
+                          "plus sign (%2B) - often used for space, but distinct from actual '+'"
+                          '(("code" . "a+b"))
+                          (alist-from-url-encoded-body (string->utf8
+                                                        "code=a%2Bb")))
+
+                         (test-equal "ampersand character (%26)"
+                                     '(("data" . "one&two"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "data=one%26two")))
+
+                         (test-equal "equals sign character (%3D)"
+                                     '(("equation" . "x=y"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "equation=x%3Dy")))
+
+                         (test-equal "question mark character (%3F)"
+                                     '(("query" . "what?"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "query=what%3F")))
+
+                         (test-equal "hash/pound sign character (%23)"
+                                     '(("tag" . "#important"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "tag=%23important")))
+
+                         (test-equal "slash character (%2F)"
+                                     '(("path" . "/usr/local"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "path=%2Fusr%2Flocal")))
+
+                         (test-equal "backslash character (%5C)"
+                                     '(("winpath" . "C:\\Users\\"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "winpath=C%3A%5CUsers%5C")))
+
+                         (test-equal "colon character (%3A)"
+                                     '(("protocol" . "http:"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "protocol=http%3A")))
+
+                         (test-equal "semicolon character (%3B)"
+                                     '(("cookie" . "id;user"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "cookie=id%3Buser")))
+
+                         (test-equal "comma character (%2C)"
+                                     '(("list" . "a,b,c"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "list=a%2Cb%2Cc")))
+
+                         (test-equal "at symbol character (%40)"
+                                     '(("email" . "test@example.com"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "email=test%40example.com")))
+
+                         (test-equal "dollar sign character (%24)"
+                                     '(("amount" . "$100"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "amount=%24100")))
+
+                         (test-equal "exclamation mark character (%21)"
+                                     '(("warning" . "danger!"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "warning=danger%21")))
+
+                         (test-equal "parentheses characters (%28, %29)"
+                                     '(("func" . "f(x)"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "func=f%28x%29")))
+
+                         (test-equal "square brackets characters (%5B, %5D)"
+                                     '(("array" . "[1,2]"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "array=%5B1%2C2%5D")))
+
+                         (test-equal "curly braces characters (%7B, %7D)"
+                                     '(("json" . "{data}"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "json=%7Bdata%7D")))
+
+                         (test-equal
+                          "unicode characters (e.g., 'é' - %C3%A9 in UTF-8)"
+                          '(("name" . "fiancé"))
+                          (alist-from-url-encoded-body (string->utf8
+                                                        "name=fianc%C3%A9")))
+
+                         (test-equal
+                          "multiple encoded characters in one value"
+                          '(("complex" . "a&b=c?d e"))
+                          (alist-from-url-encoded-body (string->utf8
+                                                        "complex=a%26b%3Dc%3Fd%20e"))))
 
              (test-group "non-empty-string? tests"
                          (test-equal "non-empty-string? with non-empty string"
