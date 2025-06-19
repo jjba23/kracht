@@ -21,9 +21,11 @@
   #:use-module (ice-9 iconv)
   #:use-module (ice-9 time)
   #:use-module (ice-9 format)
+  #:use-module (rnrs bytevectors)
   #:use-module (ice-9 popen)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
+  #:use-module (web uri)
   #:export (log-message log
                         log-info
                         log-error
@@ -35,6 +37,7 @@
                         assoc-ref-or-empty-str
                         build-asset-library
                         syscall
+                        alist-from-url-encoded-body
                         html-escape
                         html-unescape
                         get-short-commit-sha))
@@ -203,3 +206,36 @@
           (string-replace-substring accum
                                     (cadr entity)
                                     (car entity))) x html-escape-alist))
+
+(define (alist-from-url-encoded-body body)
+  (define (unsafe-mk-alist x)
+    (cons (car x)
+          (cdr x)))
+  (let* ((str (bytevector->string body "utf-8"))
+         (raw-kv-pairs (string-split str #\&))
+         (xss (map unsafe-mk-alist
+                   (map (lambda (x)
+                          (string-split x #\=)) raw-kv-pairs)))
+         (read-from-pairs (lambda (x)
+                            (catch #t
+                                   (lambda ()
+                                     `(,(uri-decode (car x)) unquote
+                                       (uri-decode (cadr x))))
+                                   (lambda (key . args)
+                                     (display (format #f
+                                               "
+warning! could not decode pair ~a: ~a: ~a
+"
+                                               x key args))
+                                     `((unquote (uri-decode (car x))) . "")))))
+         (unescaped-xss (map read-from-pairs xss))
+         (result (append unescaped-xss)))
+    (if (equal? result
+                '(("" . "")))
+        '() result)))
+
+;; (alist-from-url-encoded-body (string->utf8 "name=John%20Doe"))
+
+;; (alist-from-url-encoded-body (string->utf8  "a=1&b&c=3"))
+
+;; (alist-from-url-encoded-body (string->utf8 "key1&key2"))

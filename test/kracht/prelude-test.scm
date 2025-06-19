@@ -18,10 +18,72 @@
 (define-module (kracht prelude-test)
   #:use-module ((srfi srfi-64)
                 #:hide (define-test))
+  #:use-module (rnrs bytevectors)
+  #:use-module (ice-9 iconv)
   #:use-module (kracht test-utils)
   #:use-module (kracht prelude))
 
 (define-test test-prelude
+             (test-group "alist-from-url-encoded-body"
+                         (test-equal "empty body"
+                                     '()
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "")))
+
+                         (test-equal "single key-value pair"
+                                     '(("name" . "John Doe"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "name=John%20Doe")))
+
+                         (test-equal "multiple key-value pairs"
+                                     '(("name" . "Jane Doe") ("age" . "30"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "name=Jane%20Doe&age=30")))
+
+                         (test-equal "key with no value"
+                                     '(("key" . ""))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "key=")))
+
+                         (test-equal
+                          "value with no key (unlikely but possible from split)"
+                          '(("" . "value"))
+                          (alist-from-url-encoded-body (string->utf8 "=value")))
+
+                         (test-equal
+                          "keys and values with special characters (URL-encoded)"
+                          '(("param_1" . "value with spaces")
+                            ("param/2" . "another_value!"))
+                          (alist-from-url-encoded-body (string->utf8
+                                                        "param_1=value%20with%20spaces&param%2F2=another_value%21")))
+
+                         (test-equal "duplicate keys"
+                                     '(("item" . "apple") ("item" . "orange"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "item=apple&item=orange")))
+
+                         (test-equal "empty key and empty value"
+                                     '()
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "=")))
+
+                         (test-equal "single key, no equals sign"
+                                     '(("key-only" . "")) ;This is how string-split on '=' will behave
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "key-only")))
+
+                         (test-equal "multiple keys, no equals sign"
+                                     '(("key1" . "")
+                                       ("key2" . ""))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "key1&key2")))
+
+                         (test-equal "mixed valid and malformed pairs"
+                                     '(("a" . "1") ("b" . "")
+                                       ("c" . "3"))
+                                     (alist-from-url-encoded-body (string->utf8
+                                                                   "a=1&b&c=3"))))
+
              (test-group "non-empty-string? tests"
                          (test-equal "non-empty-string? with non-empty string"
                           #t
