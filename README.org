@@ -7,14 +7,35 @@
 [[https://jointhefreeworld.org/ggg/dist/gnu-make.svg]] 
 [[https://jointhefreeworld.org/ggg/dist/license-lgpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
-Prelude for Guile Scheme, an opt-in enhancement to the standard library.
+Utility methods and functionalities for Guile Scheme programming.
 
-/kracht/ means power/strength in the Dutch language
-
-kracht is also a recursive acronym which stands for:
-KRACHT Reliable And Consistent Helper Tools
+kracht is a recursive acronym which stands for /KRACHT Reliable And Consistent Helper Tools/, and it also means means power/strength in the Dutch language.
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
+
+------------------------
+
+* What Kracht gives you
+
+Find below a list of some functionalities that Kracht exports:
+
+- log-message :: A function for displaying a message to the console, with newlines surrounding it.
+- log :: A versatile logging function that formats and displays messages, supporting format-style arguments.
+- log-info :: A logging function specifically for displaying informational messages, prefixed with "[INFO]".
+- log-error :: A logging function specifically for displaying error messages, prefixed with "[ERROR]".
+- non-empty-string? :: A predicate that checks if a given input is a string and is not empty.
+- empty-string? :: A predicate that checks if a given string is empty.
+- string-drop-first-last :: Removes the first and last characters from a string.
+- string-drop-first-last-n :: Removes the first `n` characters and the last `n` characters from a string.
+- string-drop-first-last-line :: Removes the first and last lines from a multi-line string.
+- assoc-ref-or-empty-str :: Retrieves a value from an association list (alist) based on a given field; if the field is not found, it returns an empty string.
+- build-asset-library :: Creates an in-memory cache (an alist) by reading content from a list of specified files, with special handling for CSS files (minifying them by removing newlines).
+- syscall :: Executes a shell command and returns its standard output as a string.
+- alist-from-url-encoded-body :: Parses a URL-encoded string (typically from an HTTP request body) into an association list, decoding URL-encoded characters.
+- html-escape :: Escapes (most) special HTML characters and common accented characters in a string to their HTML entities.
+- html-unescape :: Unescapes (most) HTML entities back to their corresponding characters in a string.
+- get-short-commit-sha :: Retrieves the short commit SHA of the current Git repository using a `git log` command.
+
 
 ------------------------
 
