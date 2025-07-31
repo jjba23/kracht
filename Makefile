@@ -42,4 +42,4 @@ test:
 	guix shell -m manifest.scm -- \
 		guile -L ./src \
 		-L ./test \
-		-c "((@ (kracht test-runners) run-project-tests))"
+		-c "((@ (veritas runner) run-tests))"
