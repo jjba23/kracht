@@ -61,198 +61,195 @@
                              #:expect '()
                              #:got (alist-from-url-encoded-body (string->utf8
                                                                  "=")))
-               ;;
-               )))
+               (assert-equal #:name "single key, no equals sign"
+                             #:expect '(("key-only" . ""))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "key-only")))
 
-;;                          (test-equal "single key, no equals sign"
-;;                                      '(("key-only" . "")) ;This is how string-split on '=' will behave
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "key-only")))
+               (assert-equal #:name "multiple keys, no equals sign"
+                             #:expect '(("key1" . "") ("key2" . ""))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "key1&key2")))
 
-;;                          (test-equal "multiple keys, no equals sign"
-;;                                      '(("key1" . "") ("key2" . ""))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "key1&key2")))
+               (assert-equal #:name "mixed valid and malformed pairs"
+                             #:expect '(("a" . "1") ("b" . "")
+                                        ("c" . "3"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "a=1&b&c=3")))
+               (assert-equal #:name "space character (%20)"
+                             #:expect '(("message" . "hello world"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "message=hello%20world")))
 
-;;                          (test-equal "mixed valid and malformed pairs"
-;;                                      '(("a" . "1") ("b" . "")
-;;                                        ("c" . "3"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "a=1&b&c=3")))
-;;                          (test-equal "space character (%20)"
-;;                                      '(("message" . "hello world"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "message=hello%20world")))
+               (assert-equal #:name
+                "plus sign (%2B) - often used for space, but distinct from actual '+'"
+                #:expect '(("code" . "a+b"))
+                #:got (alist-from-url-encoded-body (string->utf8 "code=a%2Bb")))
 
-;;                          (test-equal
-;;                           "plus sign (%2B) - often used for space, but distinct from actual '+'"
-;;                           '(("code" . "a+b"))
-;;                           (alist-from-url-encoded-body (string->utf8
-;;                                                         "code=a%2Bb")))
+               (assert-equal #:name "ampersand character (%26)"
+                             #:expect '(("data" . "one&two"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "data=one%26two")))
 
-;;                          (test-equal "ampersand character (%26)"
-;;                                      '(("data" . "one&two"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "data=one%26two")))
+               (assert-equal #:name "equals sign character (%3D)"
+                             #:expect '(("equation" . "x=y"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "equation=x%3Dy")))
 
-;;                          (test-equal "equals sign character (%3D)"
-;;                                      '(("equation" . "x=y"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "equation=x%3Dy")))
+               (assert-equal #:name "question mark character (%3F)"
+                             #:expect '(("query" . "what?"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "query=what%3F")))
 
-;;                          (test-equal "question mark character (%3F)"
-;;                                      '(("query" . "what?"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "query=what%3F")))
+               (assert-equal #:name "hash/pound sign character (%23)"
+                             #:expect '(("tag" . "#important"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "tag=%23important")))
 
-;;                          (test-equal "hash/pound sign character (%23)"
-;;                                      '(("tag" . "#important"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "tag=%23important")))
+               (assert-equal #:name "slash character (%2F)"
+                             #:expect '(("path" . "/usr/local"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "path=%2Fusr%2Flocal")))
 
-;;                          (test-equal "slash character (%2F)"
-;;                                      '(("path" . "/usr/local"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "path=%2Fusr%2Flocal")))
+               (assert-equal #:name "backslash character (%5C)"
+                             #:expect '(("winpath" . "C:\\Users\\"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "winpath=C%3A%5CUsers%5C")))
 
-;;                          (test-equal "backslash character (%5C)"
-;;                                      '(("winpath" . "C:\\Users\\"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "winpath=C%3A%5CUsers%5C")))
+               (assert-equal #:name "colon character (%3A)"
+                             #:expect '(("protocol" . "http:"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "protocol=http%3A")))
 
-;;                          (test-equal "colon character (%3A)"
-;;                                      '(("protocol" . "http:"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "protocol=http%3A")))
+               (assert-equal #:name "semicolon character (%3B)"
+                             #:expect '(("cookie" . "id;user"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "cookie=id%3Buser")))
 
-;;                          (test-equal "semicolon character (%3B)"
-;;                                      '(("cookie" . "id;user"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "cookie=id%3Buser")))
+               (assert-equal #:name "comma character (%2C)"
+                             #:expect '(("list" . "a,b,c"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "list=a%2Cb%2Cc")))
 
-;;                          (test-equal "comma character (%2C)"
-;;                                      '(("list" . "a,b,c"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "list=a%2Cb%2Cc")))
+               (assert-equal #:name "at symbol character (%40)"
+                             #:expect '(("email" . "test@example.com"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "email=test%40example.com")))
 
-;;                          (test-equal "at symbol character (%40)"
-;;                                      '(("email" . "test@example.com"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "email=test%40example.com")))
+               (assert-equal #:name "dollar sign character (%24)"
+                             #:expect '(("amount" . "$100"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "amount=%24100")))
 
-;;                          (test-equal "dollar sign character (%24)"
-;;                                      '(("amount" . "$100"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "amount=%24100")))
+               (assert-equal #:name "exclamation mark character (%21)"
+                             #:expect '(("warning" . "danger!"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "warning=danger%21")))
 
-;;                          (test-equal "exclamation mark character (%21)"
-;;                                      '(("warning" . "danger!"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "warning=danger%21")))
+               (assert-equal #:name "parentheses characters (%28, %29)"
+                             #:expect '(("func" . "f(x)"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "func=f%28x%29")))
 
-;;                          (test-equal "parentheses characters (%28, %29)"
-;;                                      '(("func" . "f(x)"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "func=f%28x%29")))
+               (assert-equal #:name "square brackets characters (%5B, %5D)"
+                             #:expect '(("array" . "[1,2]"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "array=%5B1%2C2%5D")))
 
-;;                          (test-equal "square brackets characters (%5B, %5D)"
-;;                                      '(("array" . "[1,2]"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "array=%5B1%2C2%5D")))
+               (assert-equal #:name "curly braces characters (%7B, %7D)"
+                             #:expect '(("json" . "{data}"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "json=%7Bdata%7D")))
 
-;;                          (test-equal "curly braces characters (%7B, %7D)"
-;;                                      '(("json" . "{data}"))
-;;                                      (alist-from-url-encoded-body (string->utf8
-;;                                                                    "json=%7Bdata%7D")))
+               (assert-equal #:name
+                "unicode characters (e.g., 'é' - %C3%A9 in UTF-8)"
+                #:expect '(("name" . "fiancé"))
+                #:got (alist-from-url-encoded-body (string->utf8
+                                                    "name=fianc%C3%A9")))
 
-;;                          (test-equal
-;;                           "unicode characters (e.g., 'é' - %C3%A9 in UTF-8)"
-;;                           '(("name" . "fiancé"))
-;;                           (alist-from-url-encoded-body (string->utf8
-;;                                                         "name=fianc%C3%A9")))
+               (assert-equal #:name "multiple encoded characters in one value"
+                             #:expect '(("complex" . "a&b=c?d e"))
+                             #:got (alist-from-url-encoded-body (string->utf8
+                                                                 "complex=a%26b%3Dc%3Fd%20e"))))
 
-;;                          (test-equal
-;;                           "multiple encoded characters in one value"
-;;                           '(("complex" . "a&b=c?d e"))
-;;                           (alist-from-url-encoded-body (string->utf8
-;;                                                         "complex=a%26b%3Dc%3Fd%20e"))))
+         (test "non-empty-string? tests"
+               (assert-true (non-empty-string? "hello")
+                            #:name "non-empty-string? with non-empty string")
+               (assert-false (non-empty-string? "")
+                             #:name "non-empty-string? with empty string")
+               (assert-true (non-empty-string? " ")
+                            #:name "non-empty-string? with whitespace")
+               (assert-false (non-empty-string? #f)
+                             #:name "non-empty-string? with #f")
+               (assert-true (non-empty-string? #t)
+                            #:name "non-empty-string? with #t"))
 
-;;              (test-group "non-empty-string? tests"
-;;                          (test-equal "non-empty-string? with non-empty string"
-;;                           #t
-;;                           (non-empty-string? "hello"))
-;;                          (test-equal "non-empty-string? with empty string" #f
-;;                                      (non-empty-string? ""))
-;;                          (test-equal "non-empty-string? with whitespace" #t
-;;                                      (non-empty-string? " "))
-;;                          (test-equal "non-empty-string? with #f" #f
-;;                                      (non-empty-string? #f))
-;;                          (test-equal "non-empty-string? with #t" #t
-;;                                      (non-empty-string? #t)))
+         (test "empty-string? tests"
+               (assert-false (empty-string? "hello")
+                             #:name "empty-string? with non-empty string")
+               (assert-true (empty-string? "")
+                            #:name "empty-string? with empty string")
+               (assert-false (empty-string? " ")
+                             #:name "empty-string? with whitespace"))
 
-;;              (test-group "empty-string? tests"
-;;                          (test-equal "empty-string? with non-empty string" #f
-;;                                      (empty-string? "hello"))
-;;                          (test-equal "empty-string? with empty string" #t
-;;                                      (empty-string? ""))
-;;                          (test-equal "empty-string? with whitespace" #f
-;;                                      (empty-string? " ")))
+         (test "string-drop tests"
+               (assert-equal #:name "string-drop-first-last normal case"
+                             #:expect "ell"
+                             #:got (string-drop-first-last "hello"))
+               (assert-equal #:name "string-drop-first-last single char"
+                             #:expect "a"
+                             #:got (string-drop-first-last "a"))
+               (assert-equal #:name "string-drop-first-last two chars"
+                             #:expect "ab"
+                             #:got (string-drop-first-last "ab"))
+               (assert-equal #:name "string-drop-first-last empty string"
+                             #:expect ""
+                             #:got (string-drop-first-last ""))
 
-;;              (test-group "string-drop tests"
-;;                          (test-equal "string-drop-first-last normal case"
-;;                                      "ell"
-;;                                      (string-drop-first-last "hello"))
-;;                          (test-equal "string-drop-first-last single char" "a"
-;;                                      (string-drop-first-last "a"))
-;;                          (test-equal "string-drop-first-last two chars" "ab"
-;;                                      (string-drop-first-last "ab"))
-;;                          (test-equal "string-drop-first-last empty string" ""
-;;                                      (string-drop-first-last ""))
+               (assert-equal #:name "string-drop-first-last-line normal case"
+                             #:expect "middle line"
+                             #:got (string-drop-first-last-line
+                                                                "first line\nmiddle line\nlast line"))
+               (assert-equal #:name "string-drop-first-last-line single line"
+                             #:expect ""
+                             #:got (string-drop-first-last-line "single line"))
+               (assert-equal #:name "string-drop-first-last-line two lines"
+                             #:expect ""
+                             #:got (string-drop-first-last-line
+                                                                "first line\nlast line"))
+               (assert-equal #:name "string-drop-first-last-line empty input"
+                             #:expect ""
+                             #:got (string-drop-first-last-line "")))))
 
-;;                          (test-equal "string-drop-first-last-line normal case"
-;;                           "middle line"
-;;                           (string-drop-first-last-line
-;;                                                        "first line\nmiddle line\nlast line"))
-;;                          (test-equal "string-drop-first-last-line single line"
-;;                           ""
-;;                           (string-drop-first-last-line "single line"))
-;;                          (test-equal "string-drop-first-last-line two lines"
-;;                                      ""
-;;                                      (string-drop-first-last-line
-;;                                       "first line\nlast line"))
-;;                          (test-equal "string-drop-first-last-line empty input"
-;;                           ""
-;;                           (string-drop-first-last-line "")))
-
-;;              (test-group "assoc-ref-or-empty-str tests"
-;;                          (test-equal "empty alist"
+;;              (test "assoc-ref-or-empty-str tests"
+;;                          (assert-equal "empty alist"
 ;;                                      (assoc-ref-or-empty-str '()
 ;;                                                              'key) "")
 
-;;                          (test-equal "key not found"
+;;                          (assert-equal "key not found"
 ;;                                      (assoc-ref-or-empty-str '((a . 1) (b . 2))
 ;;                                                              'c) "")
 
-;;                          (test-equal "key found - string value"
+;;                          (assert-equal "key found - string value"
 ;;                                      (assoc-ref-or-empty-str '((a . 1)
 ;;                                                                (b . "hello"))
 ;;                                                              'b) "hello")
 
-;;                          (test-equal "key found - non-string value"
+;;                          (assert-equal "key found - non-string value"
 ;;                                      (assoc-ref-or-empty-str '((a . 1) (b . 2))
 ;;                                                              'b) 2)
 
-;;                          (test-equal "key is first element"
+;;                          (assert-equal "key is first element"
 ;;                                      (assoc-ref-or-empty-str '((key . "value")
 ;;                                                                (b . 2))
 ;;                                                              'key) "value")
 
-;;                          (test-equal "key is last element"
+;;                          (assert-equal "key is last element"
 ;;                                      (assoc-ref-or-empty-str '((a . 1) (b . 2)
 ;;                                                                (key . "value"))
 ;;                                                              'key) "value"))
 
-;;              (test-group "log tests"
+;;              (test "log tests"
 ;;                          (test-assert "log-message behaves as expected"
 ;;                                       (log-message (format #f
 ;;                                                     "1 + 1 = ~a and 2 + 2 = ~a"
@@ -273,99 +270,99 @@
 ;;                                       (log-error "fake message: ~a"
 ;;                                                  "something totally expected")))
 
-;;              (test-group "sha"
+;;              (test "sha"
 ;;                          (test-assert "get-short-commit-sha works as expected"
 ;;                           (write (get-short-commit-sha))))
 
-;;              (test-group "html-escape tests"
-;;                          (test-equal "Empty string" ""
+;;              (test "html-escape tests"
+;;                          (assert-equal "Empty string" ""
 ;;                                      (html-escape ""))
-;;                          (test-equal "String with no special characters"
+;;                          (assert-equal "String with no special characters"
 ;;                                      "Hello, World!"
 ;;                                      (html-escape "Hello, World!"))
-;;                          (test-equal "Single quote" "&apos;"
+;;                          (assert-equal "Single quote" "&apos;"
 ;;                                      (html-escape "'"))
-;;                          (test-equal "Double quote" "&quot;"
+;;                          (assert-equal "Double quote" "&quot;"
 ;;                                      (html-escape "\""))
-;;                          (test-equal "Mix of quotes"
+;;                          (assert-equal "Mix of quotes"
 ;;                                      "He&apos;s a &quot;guy&quot;."
 ;;                                      (html-escape "He's a \"guy\"."))
-;;                          (test-equal "Accented a" "&aacute;"
+;;                          (assert-equal "Accented a" "&aacute;"
 ;;                                      (html-escape "á"))
-;;                          (test-equal "Accented A" "&Aacute;"
+;;                          (assert-equal "Accented A" "&Aacute;"
 ;;                                      (html-escape "Á"))
-;;                          (test-equal "Accented e" "&eacute;"
+;;                          (assert-equal "Accented e" "&eacute;"
 ;;                                      (html-escape "é"))
-;;                          (test-equal "Accented E" "&Eacute;"
+;;                          (assert-equal "Accented E" "&Eacute;"
 ;;                                      (html-escape "É"))
-;;                          (test-equal "Accented i" "&iacute;"
+;;                          (assert-equal "Accented i" "&iacute;"
 ;;                                      (html-escape "í"))
-;;                          (test-equal "Accented I" "&Iacute;"
+;;                          (assert-equal "Accented I" "&Iacute;"
 ;;                                      (html-escape "Í"))
-;;                          (test-equal "Accented o" "&oacute;"
+;;                          (assert-equal "Accented o" "&oacute;"
 ;;                                      (html-escape "ó"))
-;;                          (test-equal "Accented O" "&Oacute;"
+;;                          (assert-equal "Accented O" "&Oacute;"
 ;;                                      (html-escape "Ó"))
-;;                          (test-equal "Accented u" "&uacute;"
+;;                          (assert-equal "Accented u" "&uacute;"
 ;;                                      (html-escape "ú"))
-;;                          (test-equal "Accented U" "&Uacute;"
+;;                          (assert-equal "Accented U" "&Uacute;"
 ;;                                      (html-escape "Ú"))
-;;                          (test-equal "C-cedilla" "&ccedil;"
+;;                          (assert-equal "C-cedilla" "&ccedil;"
 ;;                                      (html-escape "ç"))
-;;                          (test-equal "N-tilde" "&ntilde;"
+;;                          (assert-equal "N-tilde" "&ntilde;"
 ;;                                      (html-escape "ñ"))
-;;                          (test-equal "Multiple accents"
+;;                          (assert-equal "Multiple accents"
 ;;                                      "&Aacute;rvore &eacute; bonita"
 ;;                                      (html-escape "Árvore é bonita"))
-;;                          (test-equal "String with multiple occurrences"
+;;                          (assert-equal "String with multiple occurrences"
 ;;                           "He said, &quot;It&apos;s a beautiful day!&quot;"
 ;;                           (html-escape "He said, \"It's a beautiful day!\""))
-;;                          (test-equal "Example sentence escaped"
+;;                          (assert-equal "Example sentence escaped"
 ;;                           "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste."
 ;;                           (html-escape "Ólá, múndo! Isto é um teste.")))
 
-;;              (test-group "html-unescape tests"
-;;                          (test-equal "Empty string" ""
+;;              (test "html-unescape tests"
+;;                          (assert-equal "Empty string" ""
 ;;                                      (html-unescape ""))
-;;                          (test-equal "String with no entities" "Hello, World!"
+;;                          (assert-equal "String with no entities" "Hello, World!"
 ;;                                      (html-unescape "Hello, World!"))
-;;                          (test-equal "Single apos entity" "'"
+;;                          (assert-equal "Single apos entity" "'"
 ;;                                      (html-unescape "&apos;"))
-;;                          (test-equal "Single quot entity" "\""
+;;                          (assert-equal "Single quot entity" "\""
 ;;                                      (html-unescape "&quot;"))
-;;                          (test-equal "Mix of entities" "He's a \"guy\"."
+;;                          (assert-equal "Mix of entities" "He's a \"guy\"."
 ;;                                      (html-unescape
 ;;                                       "He&apos;s a &quot;guy&quot;."))
-;;                          (test-equal "Accented a entity" "á"
+;;                          (assert-equal "Accented a entity" "á"
 ;;                                      (html-unescape "&aacute;"))
-;;                          (test-equal "Accented A entity" "Á"
+;;                          (assert-equal "Accented A entity" "Á"
 ;;                                      (html-unescape "&Aacute;"))
-;;                          (test-equal "C-cedilla entity" "ç"
+;;                          (assert-equal "C-cedilla entity" "ç"
 ;;                                      (html-unescape "&ccedil;"))
-;;                          (test-equal "Multiple entity occurrences"
+;;                          (assert-equal "Multiple entity occurrences"
 ;;                                      "It's a \"quote\"."
 ;;                                      (html-unescape
 ;;                                       "It&apos;s a &quot;quote&quot;."))
-;;                          (test-equal "Example sentence unescaped"
+;;                          (assert-equal "Example sentence unescaped"
 ;;                                      "Ólá, múndo! Isto é um teste."
 ;;                                      (html-unescape
 ;;                                       "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste.")))
 
-;;              (test-group "Round-trip tests"
-;;                          (test-equal "Escape then unescape"
+;;              (test "Round-trip tests"
+;;                          (assert-equal "Escape then unescape"
 ;;                                      "Hello, it's a \"test\" with áéíóú."
 ;;                                      (html-unescape (html-escape
 ;;                                                      "Hello, it's a \"test\" with áéíóú.")))
-;;                          (test-equal "Example sentence"
+;;                          (assert-equal "Example sentence"
 ;;                                      "Olá, múndo! Isto é um teste."
 ;;                                      (html-unescape (html-escape
 ;;                                                      "Olá, múndo! Isto é um teste.")))
-;;                          (test-equal
+;;                          (assert-equal
 ;;                           "Unescape then escape (assuming valid entities)"
 ;;                           "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"
 ;;                           (html-escape (html-unescape
 ;;                                         "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;")))
-;;                          (test-equal
+;;                          (assert-equal
 ;;                           "Unescape then escape (for chars in alist)"
 ;;                           "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;"
 ;;                           (html-escape (html-unescape
