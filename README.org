@@ -15,6 +15,10 @@ Kracht provides helpful and convenient functionalities that can help you develop
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
 
+You can find the technical Guile Scheme API documentation for Kracht here:
+
+https://jointhefreeworld.org/api-docs/kracht/API.html
+
 ------------------------
 
 * What Kracht gives you

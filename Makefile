@@ -15,7 +15,11 @@
 # You should have received a copy of the Lesser GNU General Public License
 # along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
-.PHONY: test
+.PHONY: test docs
+
+API_DOCS_CSS_URL:="https://jointhefreeworld.org/static-assets/api-docs/css/style.css"
+DEPLOY_WWW="/srv/http/jointhefreeworld.org"
+
 
 # Logging helpers
 
@@ -42,4 +46,19 @@ test:
 	guix shell -m manifest.scm -- \
 		guile -L ./src \
 		-L ./test \
-		-c "((@ (kracht test-runners) run-project-tests))"
+		-c "((@ (veritas runner) run-tests))"
+
+# docs: Generate technical API documentation
+docs:
+	rm -rfv doc
+	guix shell -m manifest.scm -- documenta api ./src/kracht
+	guix shell -m manifest.scm -- texi2any -v --html \
+		--css-ref=$(API_DOCS_CSS_URL) ./doc/api/index.texi
+	mv ./index ./doc/api-dist
+
+# deploy: Deploys the project documentation to a web server directory.
+deploy: docs
+	rm -rfv $(DEPLOY_WWW)/api-docs/kracht
+	mkdir -p $(DEPLOY_WWW)/api-docs/kracht
+	mv doc/api-dist/* $(DEPLOY_WWW)/api-docs/kracht/
+	rm -rfv doc

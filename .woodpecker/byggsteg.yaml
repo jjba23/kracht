@@ -20,7 +20,6 @@ variables:
   - &poll_job_image 'docker.io/jjba23/byggsteg-woodpecker-poll-job:v0.1.32'
   - &get_token_image 'docker.io/jjba23/byggsteg-woodpecker-get-token:v0.1.32'
   - &jointhefreeworld_byggsteg_url 'https://byggsteg.jointhefreeworld.org'
-  - &main_branch 'trunk'
 
 clone:
   - name: "⬇️ Clone Git repository"
@@ -34,7 +33,6 @@ steps:
     image: *get_token_image
     when:
       - event: [ push ]
-        branch: [ *main_branch ]
     settings:
       BYGGSTEG_EMAIL:
         from_secret: BYGGSTEG_EMAIL
@@ -47,12 +45,11 @@ steps:
     image: *submit_job_image
     when:
       - event: [ push ]
-        branch: [ *main_branch ]
     settings:
       BYGGSTEG_URL: *jointhefreeworld_byggsteg_url
       BYGGSTEG_JOB_CODE: |
         (lambda()
-          `((task . "make-test")
+          `((task . ("make-test" "pull-and-deploy"))
             (project . "%%CI_REPO_NAME%%")
             (branch-name . "%%CI_COMMIT_BRANCH%%")            
             (clone-url . "%%CI_REPO_CLONE_URL%%")))
@@ -62,6 +59,5 @@ steps:
     image: *poll_job_image
     when:
       - event: [ push ]
-        branch: [ *main_branch ]
     settings:   
       BYGGSTEG_URL: *jointhefreeworld_byggsteg_url
