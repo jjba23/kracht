@@ -22,6 +22,142 @@
   #:use-module (kracht prelude)
   #:export (spec))
 
+(define another-suite
+  (suite "Another test suite"
+         (test "log tests"
+               (assert-true (begin
+                              (log-message (format #f
+                                            "1 + 1 = ~a and 2 + 2 = ~a"
+                                            (+ 1 1)
+                                            (+ 2 2))) #t)
+                            #:name "log-message behaves as expected")
+               (assert-true (begin
+                              (log-info "3 + 3 = ~a and 4 + 4 = ~a"
+                                        (+ 3 3)
+                                        (+ 4 4)) #t)
+                            #:name "log behaves as expected")
+               (assert-true (begin
+                              (log-info "5 + 5 = ~a and 6 + 6 = ~a"
+                                        (+ 5 5)
+                                        (+ 6 6)) #t)
+                            #:name "log-info behaves as expected")
+               (assert-true (begin
+                              (log-error "fake message: ~a"
+                                         "something totally expected") #t)
+                            #:name "log-error behaves as expected"))
+
+         (test "sha tests"
+               (assert-true (string? (get-short-commit-sha))
+                            #:name "get-short-commit-sha works as expected"))
+
+         (test "html-escape tests"
+               (assert-equal #:got (html-escape "") #:expect ""
+                             #:name "Empty string")
+               (assert-equal #:got (html-escape "Hello, World!")
+                             #:expect "Hello, World!"
+                             #:name "String with no special characters")
+               (assert-equal #:got (html-escape "'") #:expect "&apos;"
+                             #:name "Single quote")
+               (assert-equal #:got (html-escape "\"") #:expect "&quot;"
+                             #:name "Double quote")
+               (assert-equal #:got (html-escape "He's a \"guy\".")
+                             #:expect "He&apos;s a &quot;guy&quot;."
+                             #:name "Mix of quotes")
+               (assert-equal #:got (html-escape "É")
+                             #:expect "&Eacute;"
+                             #:name "Accented E")
+               (assert-equal #:got (html-escape "í")
+                             #:expect "&iacute;"
+                             #:name "Accented i")
+               (assert-equal #:got (html-escape "Í")
+                             #:expect "&Iacute;"
+                             #:name "Accented I")
+               (assert-equal #:got (html-escape "ó")
+                             #:expect "&oacute;"
+                             #:name "Accented o")
+               (assert-equal #:got (html-escape "Ó")
+                             #:expect "&Oacute;"
+                             #:name "Accented O")
+               (assert-equal #:got (html-escape "ú")
+                             #:expect "&uacute;"
+                             #:name "Accented u")
+               (assert-equal #:got (html-escape "Ú")
+                             #:expect "&Uacute;"
+                             #:name "Accented U")
+               (assert-equal #:got (html-escape "ç")
+                             #:expect "&ccedil;"
+                             #:name "C-cedilla")
+               (assert-equal #:got (html-escape "ñ")
+                             #:expect "&ntilde;"
+                             #:name "N-tilde")
+               (assert-equal #:got (html-escape "Árvore é bonita")
+                             #:expect "&Aacute;rvore &eacute; bonita"
+                             #:name "Multiple accents")
+               (assert-equal #:got (html-escape
+                                    "He said, \"It's a beautiful day!\"")
+                #:expect "He said, &quot;It&apos;s a beautiful day!&quot;"
+                #:name "String with multiple occurrences")
+               (assert-equal #:got (html-escape "Ólá, múndo! Isto é um teste.")
+                #:expect
+                "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste."
+                #:name "Example sentence escaped"))
+
+         (test "html-unescape tests"
+               (assert-equal #:got (html-unescape "")
+                             #:expect ""
+                             #:name "Empty string")
+               (assert-equal #:got (html-unescape "Hello, World!")
+                             #:expect "Hello, World!"
+                             #:name "String with no entities")
+               (assert-equal #:got (html-unescape "&apos;")
+                             #:expect "'"
+                             #:name "Single apos entity")
+               (assert-equal #:got (html-unescape "&quot;")
+                             #:expect "\""
+                             #:name "Single quot entity")
+               (assert-equal #:got (html-unescape
+                                    "He&apos;s a &quot;guy&quot;.")
+                             #:expect "He's a \"guy\"."
+                             #:name "Mix of entities")
+               (assert-equal #:got (html-unescape "&aacute;")
+                             #:expect "á"
+                             #:name "Accented a entity")
+               (assert-equal #:got (html-unescape "&Aacute;")
+                             #:expect "Á"
+                             #:name "Accented A entity")
+               (assert-equal #:got (html-unescape "&ccedil;")
+                             #:expect "ç"
+                             #:name "C-cedilla entity")
+               (assert-equal #:got (html-unescape
+                                    "It&apos;s a &quot;quote&quot;.")
+                             #:expect "It's a \"quote\"."
+                             #:name "Multiple entity occurrences")
+               (assert-equal #:got (html-unescape
+                                    "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste.")
+                             #:expect "Ólá, múndo! Isto é um teste."
+                             #:name "Example sentence unescaped"))
+
+         (test "Round-trip tests"
+               (assert-equal #:got (html-unescape (html-escape
+                                                   "Hello, it's a \"test\" with áéíóú."))
+                             #:expect "Hello, it's a \"test\" with áéíóú."
+                             #:name "Escape then unescape")
+               (assert-equal #:got (html-unescape (html-escape
+                                                   "Olá, múndo! Isto é um teste."))
+                             #:expect "Olá, múndo! Isto é um teste."
+                             #:name "Example sentence")
+               (assert-equal #:got (html-escape (html-unescape
+                                                 "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"))
+                             #:expect
+                             "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"
+                             #:name
+                             "Unescape then escape (assuming valid entities)")
+               (assert-equal #:got (html-escape (html-unescape
+                                                 "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;"))
+                #:expect
+                "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;"
+                #:name "Unescape then escape (for chars in alist)"))))
+
 (define prelude-suite
   (suite "Prelude test suite"
          (test "alist-from-url-encoded-body"
@@ -219,154 +355,40 @@
                                                                 "first line\nlast line"))
                (assert-equal #:name "string-drop-first-last-line empty input"
                              #:expect ""
-                             #:got (string-drop-first-last-line "")))))
+                             #:got (string-drop-first-last-line "")))
+         (test "assoc-ref-or-empty-str tests"
+               (assert-equal #:name "empty alist"
+                             #:got (assoc-ref-or-empty-str '()
+                                                           'key)
+                             #:expect "")
 
-;;              (test "assoc-ref-or-empty-str tests"
-;;                          (assert-equal "empty alist"
-;;                                      (assoc-ref-or-empty-str '()
-;;                                                              'key) "")
+               (assert-equal #:name "key not found"
+                             #:got (assoc-ref-or-empty-str '((a . 1) (b . 2))
+                                                           'c)
+                             #:expect "")
 
-;;                          (assert-equal "key not found"
-;;                                      (assoc-ref-or-empty-str '((a . 1) (b . 2))
-;;                                                              'c) "")
+               (assert-equal #:name "key found - string value"
+                             #:got (assoc-ref-or-empty-str '((a . 1)
+                                                             (b . "hello"))
+                                                           'b)
+                             #:expect "hello")
 
-;;                          (assert-equal "key found - string value"
-;;                                      (assoc-ref-or-empty-str '((a . 1)
-;;                                                                (b . "hello"))
-;;                                                              'b) "hello")
+               (assert-equal #:name "key found - non-string value"
+                             #:got (assoc-ref-or-empty-str '((a . 1) (b . 2))
+                                                           'b)
+                             #:expect 2)
 
-;;                          (assert-equal "key found - non-string value"
-;;                                      (assoc-ref-or-empty-str '((a . 1) (b . 2))
-;;                                                              'b) 2)
+               (assert-equal #:name "key is first element"
+                             #:got (assoc-ref-or-empty-str '((key . "value")
+                                                             (b . 2))
+                                                           'key)
+                             #:expect "value")
 
-;;                          (assert-equal "key is first element"
-;;                                      (assoc-ref-or-empty-str '((key . "value")
-;;                                                                (b . 2))
-;;                                                              'key) "value")
-
-;;                          (assert-equal "key is last element"
-;;                                      (assoc-ref-or-empty-str '((a . 1) (b . 2)
-;;                                                                (key . "value"))
-;;                                                              'key) "value"))
-
-;;              (test "log tests"
-;;                          (test-assert "log-message behaves as expected"
-;;                                       (log-message (format #f
-;;                                                     "1 + 1 = ~a and 2 + 2 = ~a"
-;;                                                     (+ 1 1)
-;;                                                     (+ 2 2))))
-
-;;                          (test-assert "log behaves as expected"
-;;                                       (log-info "3 + 3 = ~a and 4 + 4 = ~a"
-;;                                                 (+ 3 3)
-;;                                                 (+ 4 4)))
-
-;;                          (test-assert "log-info behaves as expected"
-;;                                       (log-info "5 + 5 = ~a and 6 + 6 = ~a"
-;;                                                 (+ 5 5)
-;;                                                 (+ 6 6)))
-
-;;                          (test-assert "log-error behaves as expected"
-;;                                       (log-error "fake message: ~a"
-;;                                                  "something totally expected")))
-
-;;              (test "sha"
-;;                          (test-assert "get-short-commit-sha works as expected"
-;;                           (write (get-short-commit-sha))))
-
-;;              (test "html-escape tests"
-;;                          (assert-equal "Empty string" ""
-;;                                      (html-escape ""))
-;;                          (assert-equal "String with no special characters"
-;;                                      "Hello, World!"
-;;                                      (html-escape "Hello, World!"))
-;;                          (assert-equal "Single quote" "&apos;"
-;;                                      (html-escape "'"))
-;;                          (assert-equal "Double quote" "&quot;"
-;;                                      (html-escape "\""))
-;;                          (assert-equal "Mix of quotes"
-;;                                      "He&apos;s a &quot;guy&quot;."
-;;                                      (html-escape "He's a \"guy\"."))
-;;                          (assert-equal "Accented a" "&aacute;"
-;;                                      (html-escape "á"))
-;;                          (assert-equal "Accented A" "&Aacute;"
-;;                                      (html-escape "Á"))
-;;                          (assert-equal "Accented e" "&eacute;"
-;;                                      (html-escape "é"))
-;;                          (assert-equal "Accented E" "&Eacute;"
-;;                                      (html-escape "É"))
-;;                          (assert-equal "Accented i" "&iacute;"
-;;                                      (html-escape "í"))
-;;                          (assert-equal "Accented I" "&Iacute;"
-;;                                      (html-escape "Í"))
-;;                          (assert-equal "Accented o" "&oacute;"
-;;                                      (html-escape "ó"))
-;;                          (assert-equal "Accented O" "&Oacute;"
-;;                                      (html-escape "Ó"))
-;;                          (assert-equal "Accented u" "&uacute;"
-;;                                      (html-escape "ú"))
-;;                          (assert-equal "Accented U" "&Uacute;"
-;;                                      (html-escape "Ú"))
-;;                          (assert-equal "C-cedilla" "&ccedil;"
-;;                                      (html-escape "ç"))
-;;                          (assert-equal "N-tilde" "&ntilde;"
-;;                                      (html-escape "ñ"))
-;;                          (assert-equal "Multiple accents"
-;;                                      "&Aacute;rvore &eacute; bonita"
-;;                                      (html-escape "Árvore é bonita"))
-;;                          (assert-equal "String with multiple occurrences"
-;;                           "He said, &quot;It&apos;s a beautiful day!&quot;"
-;;                           (html-escape "He said, \"It's a beautiful day!\""))
-;;                          (assert-equal "Example sentence escaped"
-;;                           "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste."
-;;                           (html-escape "Ólá, múndo! Isto é um teste.")))
-
-;;              (test "html-unescape tests"
-;;                          (assert-equal "Empty string" ""
-;;                                      (html-unescape ""))
-;;                          (assert-equal "String with no entities" "Hello, World!"
-;;                                      (html-unescape "Hello, World!"))
-;;                          (assert-equal "Single apos entity" "'"
-;;                                      (html-unescape "&apos;"))
-;;                          (assert-equal "Single quot entity" "\""
-;;                                      (html-unescape "&quot;"))
-;;                          (assert-equal "Mix of entities" "He's a \"guy\"."
-;;                                      (html-unescape
-;;                                       "He&apos;s a &quot;guy&quot;."))
-;;                          (assert-equal "Accented a entity" "á"
-;;                                      (html-unescape "&aacute;"))
-;;                          (assert-equal "Accented A entity" "Á"
-;;                                      (html-unescape "&Aacute;"))
-;;                          (assert-equal "C-cedilla entity" "ç"
-;;                                      (html-unescape "&ccedil;"))
-;;                          (assert-equal "Multiple entity occurrences"
-;;                                      "It's a \"quote\"."
-;;                                      (html-unescape
-;;                                       "It&apos;s a &quot;quote&quot;."))
-;;                          (assert-equal "Example sentence unescaped"
-;;                                      "Ólá, múndo! Isto é um teste."
-;;                                      (html-unescape
-;;                                       "&Oacute;l&aacute;, m&uacute;ndo! Isto &eacute; um teste.")))
-
-;;              (test "Round-trip tests"
-;;                          (assert-equal "Escape then unescape"
-;;                                      "Hello, it's a \"test\" with áéíóú."
-;;                                      (html-unescape (html-escape
-;;                                                      "Hello, it's a \"test\" with áéíóú.")))
-;;                          (assert-equal "Example sentence"
-;;                                      "Olá, múndo! Isto é um teste."
-;;                                      (html-unescape (html-escape
-;;                                                      "Olá, múndo! Isto é um teste.")))
-;;                          (assert-equal
-;;                           "Unescape then escape (assuming valid entities)"
-;;                           "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"
-;;                           (html-escape (html-unescape
-;;                                         "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;")))
-;;                          (assert-equal
-;;                           "Unescape then escape (for chars in alist)"
-;;                           "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;"
-;;                           (html-escape (html-unescape
-;;                                         "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;")))))
+               (assert-equal #:name "key is last element"
+                             #:got (assoc-ref-or-empty-str '((a . 1) (b . 2)
+                                                             (key . "value"))
+                                                           'key)
+                             #:expect "value"))))
 
 (define (spec)
-  (veritas-run prelude-suite))
+  (veritas-run prelude-suite another-suite))
