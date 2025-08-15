@@ -62,5 +62,7 @@ runs them concurrently by default to ensure robust testing practices.")
 
 (packages->manifest (list (specification->package "make") guile-next
                           guile-ares-rs
+                          guile-documenta
+                          texinfo
                           guile-veritas))
 
