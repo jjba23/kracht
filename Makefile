@@ -1,3 +1,5 @@
+.PHONY: docs test
+
 # kracht
 
 # Copyright © Josep Bigorra <jjbigorra@gmail.com>
@@ -15,11 +17,8 @@
 # You should have received a copy of the Lesser GNU General Public License
 # along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
-.PHONY: test docs
-
-API_DOCS_CSS_URL:="https://jointhefreeworld.org/static-assets/api-docs/css/style.css"
-DEPLOY_WWW="/srv/http/jointhefreeworld.org"
-
+API_DOCS_CSS_URL := "https://jointhefreeworld.org/static-assets/api-docs/css/style.css"
+DEPLOY_WWW = "/srv/http/jointhefreeworld.org"
 
 # Logging helpers
 
@@ -31,8 +30,9 @@ endef
 # Find all .scm files and format them using 'guix style'
 fmt:
 	$(call kracht-log-info,"formatting all Scheme files")
-	find . -maxdepth 8 -name "*.scm" -type f -exec guix style -f {} \;
-
+	@-find . -maxdepth 8 -name "*.scm" -type f -exec guix style -f {} \;
+	$(call kracht-log-info,"formatting Makefile")
+	@-mbake format --config .mbake.toml Makefile
 
 # Development REPL
 repl:

@@ -60,7 +60,8 @@ on legibility and maintainability of tests.  Veritas shuffles tests and
 runs them concurrently by default to ensure robust testing practices.")
     (license license:lgpl3+)))
 
-(packages->manifest (list (specification->package "make") guile-next
+(packages->manifest (list (specification->package "make")
+                          guile-next
                           guile-ares-rs
                           guile-documenta
                           texinfo

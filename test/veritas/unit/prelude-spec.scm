@@ -51,14 +51,17 @@
                             #:name "get-short-commit-sha works as expected"))
 
          (test "html-escape tests"
-               (assert-equal #:got (html-escape "") #:expect ""
+               (assert-equal #:got (html-escape "")
+                             #:expect ""
                              #:name "Empty string")
                (assert-equal #:got (html-escape "Hello, World!")
                              #:expect "Hello, World!"
                              #:name "String with no special characters")
-               (assert-equal #:got (html-escape "'") #:expect "&apos;"
+               (assert-equal #:got (html-escape "'")
+                             #:expect "&apos;"
                              #:name "Single quote")
-               (assert-equal #:got (html-escape "\"") #:expect "&quot;"
+               (assert-equal #:got (html-escape "\"")
+                             #:expect "&quot;"
                              #:name "Double quote")
                (assert-equal #:got (html-escape "He's a \"guy\".")
                              #:expect "He&apos;s a &quot;guy&quot;."
