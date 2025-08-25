@@ -21,6 +21,7 @@
              (guix git-download)
              (guix download)
              (gnu packages guile)
+             (gnu packages admin)
              (gnu packages nss)
              (gnu packages guile-xyz)
              (gnu packages pkg-config)
@@ -65,5 +66,6 @@ runs them concurrently by default to ensure robust testing practices.")
                           guile-ares-rs
                           guile-documenta
                           texinfo
+                          direvent
                           guile-veritas))
 
