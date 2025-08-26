@@ -47,7 +47,7 @@
 (define (docs)
   "Generate technical API documentation for Kracht."
   (delete-file-recursively "doc")
-  (manifest-shell (list "documenta api ./src/kracht && "
+  (manifest-shell (list (~ "documenta api ./src/~a && " project-name)
                         (~ "texi2any -v --html --css-ref=~a" api-docs-css-url)
                         "./doc/api/index.texi"))
   (mv "./index" "./doc/api-dist"))
