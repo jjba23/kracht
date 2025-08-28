@@ -21,9 +21,9 @@
 
 ;; ====== Maak file constants ======
 
-;; The absolute URL for the CSS style-sheet used to style API documentation.
+;; The URL for the CSS style-sheet used to style API documentation.
 (define api-docs-css-url
-  "https://jointhefreeworld.org/static-assets/api-docs/css/style.css")
+  "https://jointhefreeworld.org/static/css/jointhefreeworld.css")
 
 ;; The absolute path to the directory where the API documentation will be deployed.
 (define deploy-api-docs-dir
@@ -32,6 +32,8 @@
 ;; The name of the project, represented as a symbol.
 (define project-name
   'kracht)
+
+(define hot-reload-file-types '(scm))
 
 ;; ====== Maak file tasks ======
 
@@ -67,7 +69,14 @@
 
 (define (hot-reload)
   "Hot-reloading developer's setup."
-  ($ '("direvent direvent.conf")))
+  (manifest-shell (list "watchexec 'maak test'"
+                        "--clear"
+                        (~ "--exts ~a"
+                           (string-join (map symbol->string
+                                             hot-reload-file-types) ","))
+                        "--on-busy-update=restart"
+                        "--shell bash"
+                        "--watch .")))
 
 (define (hr)
   "Alias to hot-reloading."
