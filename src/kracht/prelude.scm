@@ -33,8 +33,7 @@
                                         uri-encode
                                         with-output-to-port
                                         with-output-to-file
-                                        with-output-to-string
-                                        close-pipe
+                                        with-output-to-string   
                                         get-string-all
                                         open-input-pipe
                                         open-input-output-pipe)
