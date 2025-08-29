@@ -16,19 +16,32 @@
 ;; along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (kracht prelude)
-  #:use-module (ice-9 string-fun)
-  #:use-module (srfi srfi-1)
-  #:use-module (ice-9 iconv)
-  #:use-module (ice-9 time)
   #:use-module (ice-9 format)
-  #:use-module (rnrs bytevectors)
+  #:use-module (ice-9 iconv)
   #:use-module (ice-9 popen)
-  #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 rdelim)
+  #:use-module (ice-9 string-fun)
+  #:use-module (ice-9 textual-ports)
+  #:use-module (ice-9 ports)
+  #:use-module (ice-9 time)
+  #:use-module (rnrs bytevectors)
+  #:use-module (srfi srfi-1)
   #:use-module (web uri)
+  #:re-export (string-replace-substring string->utf8
+                                        utf8->string
+                                        uri-decode
+                                        uri-encode
+                                        with-output-to-port
+                                        with-output-to-file
+                                        with-output-to-string
+                                        close-pipe
+                                        get-string-all
+                                        open-input-pipe
+                                        open-input-output-pipe)
   #:export (log-message log
                         log-info
                         log-error
+                        flatten-list
                         non-empty-string?
                         empty-string?
                         string-drop-first-last
@@ -96,6 +109,19 @@
                      (drop-right (cdr lines) 1)
                      '())))
     (string-join middle "\n")))
+
+;;
+;; list helpers
+;;
+
+(define (flatten-list xs)
+  (cond
+    ((null? xs)
+     '())
+    ((pair? xs)
+     (append (flatten-list (car xs))
+             (flatten-list (cdr xs))))
+    (else (list xs))))
 
 ;;
 ;; alist helpers
