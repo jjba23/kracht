@@ -23,12 +23,13 @@ https://jointhefreeworld.org/api-docs/kracht/API.html
 
 * What Kracht gives you
 
-Find below a list of some functionalities that Kracht exports:
+Find below a non-exhaustive list of some functionalities that Kracht exports. Kracht exports much more, both from standard Guile libraries and also custom-made utilities.
 
 - log-message :: A function for displaying a message to the console, with newlines surrounding it.
 - log :: A versatile logging function that formats and displays messages, supporting format-style arguments.
 - log-info :: A logging function specifically for displaying informational messages, prefixed with "[INFO]".
 - log-error :: A logging function specifically for displaying error messages, prefixed with "[ERROR]".
+- flatten-list :: A function that helps us flatten lists of lists into a single-depth list.  
 - non-empty-string? :: A predicate that checks if a given input is a string and is not empty.
 - empty-string? :: A predicate that checks if a given string is empty.
 - string-drop-first-last :: Removes the first and last characters from a string.
