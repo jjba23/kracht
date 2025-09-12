@@ -325,5 +325,3 @@ EOFEOF" s)))
                                "cat << \\EOFEOF | base64 --decode --wrap=0
 ~a
 EOFEOF" s))))
-
-(base64-decode (base64-encode "JOE"))
