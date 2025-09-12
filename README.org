@@ -11,37 +11,17 @@ Utility methods and functionalities for Guile Scheme programming.
 
 kracht is a recursive acronym which stands for /KRACHT Reliable And Consistent Helper Tools/, and it also means means power/strength in the Dutch language.
 
-Kracht provides helpful and convenient functionalities that can help you develop more comfortably in your Guile Scheme project.  You can see it as a batteries-included addition to the (already great) standard library, complementing it, and helping developers write cleaner code.
+Kracht provides helpful and convenient functionalities and re-exports that can help you develop more comfortably and faster in your Guile Scheme project.  You can see it as a batteries-included enhancement to the (already great) standard library, complementing it, and helping developers write cleaner code.
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
-
-You can find the technical Guile Scheme API documentation for Kracht here:
-
-https://jointhefreeworld.org/api-docs/kracht/API.html
 
 ------------------------
 
 * What Kracht gives you
 
-Find below a non-exhaustive list of some functionalities that Kracht exports. Kracht exports much more, both from standard Guile libraries and also custom-made utilities.
+You can find the technical Guile Scheme API documentation  for Kracht here, where all the code is documented:
 
-- log-message :: A function for displaying a message to the console, with newlines surrounding it.
-- log :: A versatile logging function that formats and displays messages, supporting format-style arguments.
-- log-info :: A logging function specifically for displaying informational messages, prefixed with "[INFO]".
-- log-error :: A logging function specifically for displaying error messages, prefixed with "[ERROR]".
-- flatten-list :: A function that helps us flatten lists of lists into a single-depth list.  
-- non-empty-string? :: A predicate that checks if a given input is a string and is not empty.
-- empty-string? :: A predicate that checks if a given string is empty.
-- string-drop-first-last :: Removes the first and last characters from a string.
-- string-drop-first-last-n :: Removes the first `n` characters and the last `n` characters from a string.
-- string-drop-first-last-line :: Removes the first and last lines from a multi-line string.
-- assoc-ref-or-empty-str :: Retrieves a value from an association list (alist) based on a given field; if the field is not found, it returns an empty string.
-- build-asset-library :: Creates an in-memory cache (an alist) by reading content from a list of specified files, with special handling for CSS files (minifying them by removing newlines).
-- syscall :: Executes a shell command and returns its standard output as a string.
-- alist-from-url-encoded-body :: Parses a URL-encoded string (typically from an HTTP request body) into an association list, decoding URL-encoded characters.
-- html-escape :: Escapes (most) special HTML characters and common accented characters in a string to their HTML entities.
-- html-unescape :: Unescapes (most) HTML entities back to their corresponding characters in a string.
-- get-short-commit-sha :: Retrieves the short commit SHA of the current Git repository using a `git log` command.
+https://jointhefreeworld.org/api-docs/kracht/API.html
 
 
 ------------------------

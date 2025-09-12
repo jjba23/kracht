@@ -26,6 +26,7 @@
   #:use-module (ice-9 time)
   #:use-module (rnrs bytevectors)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
   #:use-module (web uri)
   #:re-export (string-replace-substring string->utf8
                                         utf8->string
@@ -33,7 +34,7 @@
                                         uri-encode
                                         with-output-to-port
                                         with-output-to-file
-                                        with-output-to-string   
+                                        with-output-to-string
                                         get-string-all
                                         open-input-pipe
                                         open-input-output-pipe)
@@ -42,6 +43,8 @@
                         log-error
                         flatten-list
                         non-empty-string?
+                        base64-encode
+                        base64-decode
                         empty-string?
                         string-drop-first-last
                         string-drop-first-last-n
@@ -49,9 +52,12 @@
                         assoc-ref-or-empty-str
                         build-asset-library
                         syscall
+                        shuffle-fy
                         alist-from-url-encoded-body
                         html-escape
                         html-unescape
+                        evaluate-thunks
+                        getenv-or
                         get-short-commit-sha))
 
 ;;
@@ -258,3 +264,66 @@ warning! could not decode pair ~a: ~a: ~a
     (if (equal? result
                 '(("" . "")))
         '() result)))
+
+(define-syntax-rule (evaluate-thunks thunks)
+  "Given a list of functions that don't take any inputs, run each one of
+those functions and return a list of what each function returned."
+  (map (lambda (t)
+         (apply t
+                '())) thunks))
+
+(define* (getenv-or var
+                    #:key (default #f))
+  (catch #t
+         (lambda ()
+           (let* ((v (getenv (format #f "~a" var))))
+             (if (not v) default v)))
+         (lambda (key . args)
+           (display (format #f
+                            "
+error: ~a: ~a
+could not read environment variable ~a
+return default: ~a
+"
+                            key
+                            args
+                            var
+                            default)) default)))
+
+;; List shuffle which implements the modern Fisher-Yates shuffle algorithm.
+;; It converts the list to a vector for efficient O(1) random access
+;; and mutation, shuffles the vector in-place, and then converts it back to a list.
+(define (shuffle-fy xs)
+  "Returns a randomly shuffled copy of XS."
+  (set! *random-state*
+        (random-state-from-platform))
+  (if (or (null? xs)
+          (null? (cdr xs))) xs
+      (let* ((vec (list->vector xs))
+             (len (vector-length vec)))
+        ;; Loop from the last element down to the second element.
+        (do ((i (- len 1)
+                (- i 1)))
+            ((< i 1))
+            ;; Pick a random index j from 0 to i (inclusive).
+            (let* ((j (random (1+ i)))
+                   ;; Swap the elements at positions i and j.
+                   (temp (vector-ref vec i)))
+              (vector-set! vec i
+                           (vector-ref vec j))
+              (vector-set! vec j temp)))
+        ;; Convert the shuffled vector back to a list.
+        (vector->list vec))))
+
+(define (base64-encode s)
+  (syscall (format #f "cat << \\EOFEOF | base64 --wrap=0
+~a
+EOFEOF" s)))
+
+(define (base64-decode s)
+  (string-trim-right (syscall (format #f
+                               "cat << \\EOFEOF | base64 --decode --wrap=0
+~a
+EOFEOF" s))))
+
+(base64-decode (base64-encode "JOE"))
