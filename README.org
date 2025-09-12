@@ -98,6 +98,10 @@ In summary, we foster an inclusive, respectful, and cooperative environment for 
 
 -------
 
+[[https://jointhefreeworld.org/static-assets/kracht/kracht-small.png]]
+
+---------
+
 * Kracht Project
 
 Contributing to free software is a uniquely beautiful act because it embodies principles of generosity, collaboration, and empowerment.
@@ -108,4 +112,3 @@ Find here the Backlog and Kanban boards for kracht: https://lucidplan.jointhefre
 
 -----
 
-[[https://jointhefreeworld.org/static-assets/kracht/kracht-2-small.png]]
