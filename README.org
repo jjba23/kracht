@@ -4,14 +4,13 @@
 #+language: en
 
 [[https://jointhefreeworld.org/ggg/dist/scheme-guile.svg]] [[https://jointhefreeworld.org/ggg/dist/gnu-guix.svg]]  
-[[https://jointhefreeworld.org/ggg/dist/gnu-make.svg]] 
 [[https://jointhefreeworld.org/ggg/dist/license-lgpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
 Utility methods and functionalities for Guile Scheme programming.
 
 kracht is a recursive acronym which stands for /KRACHT Reliable And Consistent Helper Tools/, and it also means means power/strength in the Dutch language.
 
-Kracht provides helpful and convenient functionalities and re-exports that can help you develop more comfortably and faster in your Guile Scheme project.  You can see it as a batteries-included enhancement to the (already great) standard library, complementing it, and helping developers write cleaner code.
+Kracht provides helpful and convenient custom functionalities as well as re-exports from the standard library that can help you develop more comfortably and faster in your Guile Scheme project.  You can see it as a batteries-included enhancement to the (already great) standard library, complementing it, and helping developers write cleaner code.
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
 
@@ -23,6 +22,10 @@ You can find the technical Guile Scheme API documentation  for Kracht here, wher
 
 https://jointhefreeworld.org/api-docs/kracht/API.html
 
+
+* Runtime Dependencies
+
+Kracht has minimal dependencies and basically only needs GNU Guile Scheme itself. If one desires to use base64 encoding and decoding functionality, the ~base64~ binary is expected to be in the ~PATH~ (this is the case for most Unix systems).
 
 ------------------------
 
@@ -43,6 +46,7 @@ https://www.gnu.org/licenses/fdl-1.3.html
 - WikiMusic :: https://codeberg.org/jjba23/wikimusic
 - LucidPlan :: https://codeberg.org/jjba23/lucidplan
 - Byggsteg :: https://codeberg.org/jjba23/byggsteg
+- more...  
 
 --------------
 
