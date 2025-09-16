@@ -36,6 +36,8 @@
                                         with-output-to-file
                                         with-output-to-string
                                         get-string-all
+                                        fold
+                                        fold-right
                                         open-input-pipe
                                         open-input-output-pipe)
   #:export (log-message log
@@ -51,6 +53,7 @@
                         string-drop-first-last-line
                         assoc-ref-or-empty-str
                         build-asset-library
+                        assoc-lens
                         syscall
                         shuffle-fy
                         alist-from-url-encoded-body
@@ -131,6 +134,10 @@
 ;;
 ;; alist helpers
 ;;
+
+(define (assoc-lens xs keys)
+  (fold (lambda (k xxs)
+          (assoc-ref xxs k)) xs keys))
 
 (define (assoc-ref-or-empty-str alist field)
   (let ((sut (assoc-ref alist field)))
