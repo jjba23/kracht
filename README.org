@@ -3,7 +3,7 @@
 #+email: jjbigorra@gmail.com
 #+language: en
 
-[[https://jointhefreeworld.org/ggg/dist/scheme-guile.svg]] [[https://jointhefreeworld.org/ggg/dist/gnu-guix.svg]]  
+[[https://jointhefreeworld.org/ggg/dist/scheme-guile.svg]] [[https://jointhefreeworld.org/ggg/dist/gnu-guix.svg]]
 [[https://jointhefreeworld.org/ggg/dist/license-lgpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
 Utility methods and functionalities for Guile Scheme programming.
@@ -89,6 +89,19 @@ complementing it, and helping developers write cleaner code.")
 
 -------------
 
+* AI Policy
+
+This project adheres to the [[https://jointhefreeworld.org/blog/articles/personal/jointhefreeworld-ai-policy/index.html][jointhefreeworld AI (Artificial Intelligence) policy]].
+
+Our core principle is simple: *AI should assist human creativity and problem-solving, never replace human reasoning.*
+
+While tools like Large Language Models (LLMs) and interactive chatbots can be beneficial for reviewing, refactoring small functions, or acting as a sounding board, they should be used with moderation.
+
+We require a human in the loop for all contributions. The use of autonomous AI agents to automatically generate and submit pull requests to this project is strictly prohibited.
+
+
+-------
+
 * Code of conduct
 
 This project adheres to the jointhefreeworld code of conduct. Find it here:
@@ -112,4 +125,3 @@ We welcome everyone to feel invited to the kracht Project, and encourage active 
 Find here the Backlog and Kanban boards for kracht: https://lucidplan.jointhefreeworld.org/tickets/kracht
 
 -----
-
