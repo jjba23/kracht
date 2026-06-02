@@ -40,49 +40,31 @@
                                         fold-right
                                         open-input-pipe
                                         open-input-output-pipe)
-  #:export (log-message log
-                        log-info
-                        log-error
-                        flatten-list
-                        non-empty-string?
-                        base64-encode
-                        base64-decode
-                        empty-string?
-                        string-drop-first-last
-                        string-drop-first-last-n
-                        string-drop-first-last-line
-                        assoc-ref-or-empty-str
-                        build-asset-library
-                        assoc-lens
-                        syscall
-                        shuffle-fy
-                        alist-from-url-encoded-body
-                        html-escape
-                        html-unescape
-                        evaluate-thunks
-                        getenv-or
-                        get-short-commit-sha))
-
-;;
-;; logging helpers
-;;
-
-(define (log-message msg)
-  (display (format #f "\n~a\n" msg)))
-
-(define (log msg . args)
-  (log-message (apply format
-                      (append (list #f msg) args))))
-
-(define (log-info msg . args)
-  (log-message (format #f "[INFO] ~a"
-                       (apply format
-                              (append (list #f msg) args)))))
-
-(define (log-error msg . args)
-  (log-message (format #f "[ERROR] ~a"
-                       (apply format
-                              (append (list #f msg) args)))))
+  #:export (flatten-list non-empty-string?
+                         base64-encode
+                         base64-decode
+                         empty-string?
+                         string-drop-first-last
+                         string-drop-first-last-n
+                         string-drop-first-last-line
+                         assoc-ref-or-empty-str
+                         build-asset-library
+                         assoc-lens
+                         syscall
+                         shuffle-fy
+                         alist-from-url-encoded-body
+                         html-escape
+                         html-unescape
+                         evaluate-thunks
+                         getenv-or
+                         get-short-commit-sha
+                         symbol->sql-column
+                         sql-column->symbol
+                         symbols->sql-columns-list
+                         alist?
+                         sql-row->scheme-alist
+                         pair->sql-assignment
+                         value->sql-literal))
 
 ;;
 ;; string checks
@@ -356,3 +338,81 @@ Trims trailing right whitespaces from output."
                                "cat << \\EOFEOF | base64 --decode --wrap=0
 ~a
 EOFEOF" s))))
+
+;;
+;; SQL
+;;
+
+(define (symbol->sql-column x)
+  "Convert Scheme symbol X into a SQL column name string by replacing
+hyphens with underscores."
+  (string-replace-substring (symbol->string x) "-" "_"))
+
+(define (sql-column->symbol x)
+  "Convert SQL column name string X into a Scheme symbol by replacing
+underscores with hyphens."
+  (string->symbol (string-replace-substring x "_" "-")))
+
+(define (symbols->sql-columns-list xs)
+  "Convert a list of symbols XS into a single string of comma-separated
+SQL column names."
+  (string-join (map symbol->sql-column xs) ", "))
+
+(define (alist? obj)
+  "Return #t if OBJ is a valid association list (a list where every
+element is a pair), otherwise return #f."
+  (cond
+    ((null? obj)
+     #t)
+    ((not (pair? obj))
+     #f)
+    ((not (pair? (car obj)))
+     #f)
+    (else (alist? (cdr obj)))))
+
+(define (sql-row->scheme-alist xs)
+  "Transform a SQL row representation XS into a Scheme-idiomatic association list.
+If XS is an alist, it converts its column keys into hyphenated Scheme symbols.
+If XS is not an alist, it returns XS unaltered."
+  (cond
+    ((alist? xs)
+     (map (lambda (pair)
+            (cons (sql-column->symbol (car pair))
+                  (cdr pair))) xs))
+    (else xs)))
+
+(define (pair->sql-assignment a)
+  "Convert a key-value pair A into a SQL assignment clause string
+formatted as \"column_name = value\".
+
+The key symbol is mapped via `symbol->sql-column`. Booleans are converted
+to 1 or 0, numbers are unquoted, and all other types are single-quoted."
+  (cond
+    ((number? (cdr a))
+     (format #f "~a = ~a"
+             (symbol->sql-column (car a))
+             (cdr a)))
+    ((eq? #t
+          (cdr a))
+     (format #f "~a = 1"
+             (symbol->sql-column (car a))))
+    ((eq? #f
+          (cdr a))
+     (format #f "~a = 0"
+             (symbol->sql-column (car a))))
+    (else (format #f "~a = '~a'"
+                  (symbol->sql-column (car a))
+                  (cdr a)))))
+
+(define (value->sql-literal a)
+  "Convert a Scheme value A into its raw SQL literal string representation.
+Numbers are kept raw, booleans are mapped to \"1\" or \"0\", and other
+types are wrapped in single quotes. You should escape single quotes if needed yourself."
+  (cond
+    ((number? a)
+     (format #f "~a" a))
+    ((eq? #t a)
+     "1")
+    ((eq? #f a)
+     "0")
+    (else (format #f "'~a'" a))))

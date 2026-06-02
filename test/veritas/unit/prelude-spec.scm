@@ -24,28 +24,6 @@
 
 (define another-suite
   (suite "Another test suite"
-         (test "log tests"
-               (assert-true (begin
-                              (log-message (format #f
-                                            "1 + 1 = ~a and 2 + 2 = ~a"
-                                            (+ 1 1)
-                                            (+ 2 2))) #t)
-                            #:name "log-message behaves as expected")
-               (assert-true (begin
-                              (log-info "3 + 3 = ~a and 4 + 4 = ~a"
-                                        (+ 3 3)
-                                        (+ 4 4)) #t)
-                            #:name "log behaves as expected")
-               (assert-true (begin
-                              (log-info "5 + 5 = ~a and 6 + 6 = ~a"
-                                        (+ 5 5)
-                                        (+ 6 6)) #t)
-                            #:name "log-info behaves as expected")
-               (assert-true (begin
-                              (log-error "fake message: ~a"
-                                         "something totally expected") #t)
-                            #:name "log-error behaves as expected"))
-
          (test "sha tests"
                (assert-true (string? (get-short-commit-sha))
                             #:name "get-short-commit-sha works as expected"))
