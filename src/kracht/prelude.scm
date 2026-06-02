@@ -143,20 +143,18 @@
   (let ((sut (assoc-ref alist field)))
     (if (equal? #f sut) "" sut)))
 
-;;
-;; Asset library is an in-memory cache, a lookup dictionary
-;; that can be used for faster performance, memoization, etc
-;; this version will read from a list of files specifies with
-;; the FILES param
-;;
-;; to use it, you can simply call the function
-;; with a list of file paths:
-;;
-;; (define my-asset-library
-;;   (build-asset-library '("pub/css/fonts.css" "pub/js/tailwind.js")))
-;;
 
 (define* (build-asset-library files)
+  "Asset library is an in-memory cache, a lookup dictionary
+ that can be used for faster performance, memoization, etc
+ this version will read from a list of files specifies with
+ the FILES param
+
+ to use it, you can simply call the function
+ with a list of file paths:
+
+ (define my-asset-library
+   (build-asset-library '("pub/css/fonts.css" "pub/js/tailwind.js")))"
   (let* ((lib '()))
     (for-each (lambda (f)
                 (let* ((file-contents (get-string-all (open-input-file f)))
@@ -171,6 +169,7 @@
 ;; syscall
 
 (define (syscall cmd)
+
   (let* ((process (open-input-pipe cmd))
          (process-output (get-string-all process)))
     (close-pipe process) process-output))
@@ -280,7 +279,8 @@ those functions and return a list of what each function returned."
                 '())) thunks))
 
 (define* (getenv-or var
-                    #:key (default #f))
+                    #:key default)
+  "Get env VAR or return a DEFAULT value."
   (catch #t
          (lambda ()
            (let* ((v (getenv (format #f "~a" var))))
@@ -297,11 +297,12 @@ return default: ~a
                             var
                             default)) default)))
 
-;; List shuffle which implements the modern Fisher-Yates shuffle algorithm.
-;; It converts the list to a vector for efficient O(1) random access
-;; and mutation, shuffles the vector in-place, and then converts it back to a list.
+
 (define (shuffle-fy xs)
-  "Returns a randomly shuffled copy of XS."
+  "Returns a randomly shuffled copy of XS.
+List shuffle which implements the modern Fisher-Yates shuffle algorithm.
+It converts the list to a vector for efficient O(1) random access
+and mutation, shuffles the vector in-place, and then converts it back to a list."
   (set! *random-state*
         (random-state-from-platform))
   (if (or (null? xs)
