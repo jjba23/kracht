@@ -89,10 +89,12 @@
 ;;
 
 (define (non-empty-string? s)
+  "Return #t if S is a valid string and not equal to \"\", otherwise return #f."
   (and s
        (not (equal? "" s))))
 
 (define (empty-string? s)
+  "Return #t if S is exactly the empty string \"\"."
   (equal? "" s))
 
 ;;
@@ -100,18 +102,23 @@
 ;;
 
 (define (string-drop-first-last s)
+  "Return a substring of S with its first and last characters removed.
+If the string length is 2 or less, returns S unaltered."
   (if (> (string-length s) 2)
-
       (string-take (string-drop s 1)
                    (- (string-length s) 2)) s))
 
 (define (string-drop-first-last-n s n)
+  "Return a substring of S with the first N characters and the final 1 character removed.
+If the string length is 2 or less, returns S unaltered."
   (if (> (string-length s) 2)
       (string-take (string-drop s n)
                    (- (string-length s)
                       (+ 1 n))) s))
 
 (define (string-drop-first-last-line s)
+  "Split string S by newlines, remove its first and last lines, and rejoin
+the remaining lines with newlines."
   (let* ((lines (string-split s #\newline))
          (middle (if (> (length lines) 2)
                      (drop-right (cdr lines) 1)
@@ -123,6 +130,7 @@
 ;;
 
 (define (flatten-list xs)
+  "Recursively flatten a nested list structure XS into a flat, one-dimensional list."
   (cond
     ((null? xs)
      '())
@@ -136,25 +144,24 @@
 ;;
 
 (define (assoc-lens xs keys)
+  "Deeply look up a value within nested association lists XS by traversing
+the sequence of KEYS sequentially."
   (fold (lambda (k xxs)
           (assoc-ref xxs k)) xs keys))
 
 (define (assoc-ref-or-empty-str alist field)
+  "Look up FIELD in ALIST. Return the associated value if found,
+or an empty string \"\" if the field does not exist or matches #f."
   (let ((sut (assoc-ref alist field)))
     (if (equal? #f sut) "" sut)))
 
-
 (define* (build-asset-library files)
   "Asset library is an in-memory cache, a lookup dictionary
- that can be used for faster performance, memoization, etc
- this version will read from a list of files specifies with
- the FILES param
+that can be used for faster performance, memoization, etc.
+This version will read from a list of files specified with
+the FILES param.
 
- to use it, you can simply call the function
- with a list of file paths:
-
- (define my-asset-library
-   (build-asset-library '("pub/css/fonts.css" "pub/js/tailwind.js")))"
+To use it, you can simply call the function with a list of file paths."
   (let* ((lib '()))
     (for-each (lambda (f)
                 (let* ((file-contents (get-string-all (open-input-file f)))
@@ -166,16 +173,25 @@
                   (set! lib
                         (assoc-set! lib f min-contents)))) files) lib))
 
+;; (define my-asset-library
+;;   (build-asset-library '("pub/css/fonts.css" "pub/js/tailwind.js")))
+
 ;; syscall
 
 (define (syscall cmd)
-
+  "Execute system shell command CMD via an input pipe and return
+the captured standard output as a string."
   (let* ((process (open-input-pipe cmd))
          (process-output (get-string-all process)))
     (close-pipe process) process-output))
 
 (define (get-short-commit-sha)
+  "Retrieve the short Git commit SHA (7 characters) of the current repository state."
   (syscall "git log --pretty=format:'%h' -n 1"))
+
+;;
+;;
+;;
 
 (define html-escape-alist
   '(("'" "&apos;")
@@ -233,21 +249,26 @@
     ("Õ" "&Otilde;")))
 
 (define (html-escape x)
+  "Replace special or non-ASCII characters in string X with their HTML entity equivalents."
   (fold (lambda (entity accum)
           (string-replace-substring accum
                                     (car entity)
                                     (cadr entity))) x html-escape-alist))
 
 (define (html-unescape x)
+  "Convert HTML entities inside string X back into their original character equivalents."
   (fold (lambda (entity accum)
           (string-replace-substring accum
                                     (cadr entity)
                                     (car entity))) x html-escape-alist))
 
+(define (unsafe-mk-alist x)
+  (cons (car x)
+        (cdr x)))
+
 (define (alist-from-url-encoded-body body)
-  (define (unsafe-mk-alist x)
-    (cons (car x)
-          (cdr x)))
+  "Parse a URL-encoded bytevector HTTP BODY into an association list of key-value strings."
+
   (let* ((str (bytevector->string body "utf-8"))
          (raw-kv-pairs (string-split str #\&))
          (xss (map unsafe-mk-alist
@@ -297,7 +318,6 @@ return default: ~a
                             var
                             default)) default)))
 
-
 (define (shuffle-fy xs)
   "Returns a randomly shuffled copy of XS.
 List shuffle which implements the modern Fisher-Yates shuffle algorithm.
@@ -324,11 +344,14 @@ and mutation, shuffles the vector in-place, and then converts it back to a list.
         (vector->list vec))))
 
 (define (base64-encode s)
+  "Encode string S into a base64 string without line wrapping by system execution."
   (syscall (format #f "cat << \\EOFEOF | base64 --wrap=0
 ~a
 EOFEOF" s)))
 
 (define (base64-decode s)
+  "Decode base64 encoded string S back into its raw string format by system execution.
+Trims trailing right whitespaces from output."
   (string-trim-right (syscall (format #f
                                "cat << \\EOFEOF | base64 --decode --wrap=0
 ~a
