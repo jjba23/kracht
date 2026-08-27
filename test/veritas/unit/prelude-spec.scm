@@ -22,6 +22,32 @@
   #:use-module (kracht prelude)
   #:export (spec))
 
+(define flatten-suite
+  (suite "Flatten lists"
+         (test "empty list"
+               (assert-equal #:expect '()
+                             #:got (flatten-list '())))
+         (test "no flatten needed"
+               (assert-equal #:expect '(1 2 3)
+                             #:got (flatten-list '(1 2 3))))
+         (test "flatten 1 level"
+               (assert-equal #:expect '(1 2 3)
+                             #:got (flatten-list '(1 2
+                                                   (3)))))
+         (test "flatten 1 level and many lists"
+               (assert-equal #:expect '(1 2 3)
+                             #:got (flatten-list '(1 (2)
+                                                   (3)))))
+         (test "flatten 2 levels"
+               (assert-equal #:expect '(1 2 "something" 4)
+                             #:got (flatten-list '(1 (2)
+                                                   (("something"))
+                                                   ((4))))))
+         (test "flatten 3 levels"
+               (assert-equal #:expect '(1 2 3 4)
+                             #:got (flatten-list '(1 (2)
+                                                   (((3))) 4))))))
+
 (define another-suite
   (suite "Another test suite"
          (test "sha tests"
@@ -372,4 +398,4 @@
                              #:expect "value"))))
 
 (define (spec)
-  (veritas-run prelude-suite another-suite))
+  (veritas-run prelude-suite another-suite flatten-suite))
