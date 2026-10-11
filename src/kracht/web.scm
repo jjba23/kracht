@@ -21,7 +21,12 @@
   #:use-module (srfi srfi-1)
   #:use-module (web uri)
   #:re-export (uri-decode uri-encode)
-  #:export (html-escape html-unescape alist-from-url-encoded-body))
+  #:export (html-escape html-unescape
+                        html-escape-context
+                        html-escape-unquoted-attribute
+                        html-escape-js-string
+                        html-escape-css-value
+                        alist-from-url-encoded-body))
 
 ;;;
 ;;; HTML escaping
@@ -110,10 +115,15 @@
        (append html-escape-alist html-unescape-only-alist)))
 
 (define (html-escape x)
-  "Replace the characters of string X that are significant to HTML --
-the ampersand, less-than, greater-than, double-quote and apostrophe
-characters -- plus the accented Latin letters kracht renders as named
-entities, with their entity equivalents.
+  "Replace the characters of string X that are significant to HTML -- the
+ampersand, less-than, greater-than, double-quote and apostrophe characters --
+plus the accented Latin letters kracht renders as named entities, with their
+entity equivalents.
+
+This covers two contexts: HTML element text, and a *quoted* attribute value.
+For an unquoted attribute, a JavaScript string, a CSS value or a URL, use
+`html-escape-context' instead; those contexts have their own ways to end a
+value early that escaping the five HTML special characters does not address.
 
 X is processed one character at a time, so escaping is deliberately *not*
 idempotent: `&amp;' becomes `&amp;amp;'.  Escape raw text exactly once and
@@ -179,6 +189,119 @@ unknown or malformed entities are copied through unchanged."
                                          (begin
                                            (display c port)
                                            (loop (+ i 1)))))))))))
+
+;;;
+;;; Context-aware output encoding
+;;;
+;;; `html-escape' above is right for HTML text and for quoted attribute values,
+;;; but the same input is not safe in every position: a string inside a
+;;; <script> block, a CSS value, an unquoted attribute and a URL each have their
+;;; own way to end a value early.  The encoders below cover those positions.
+;;; Encode for the context the value is going into, and encode it last.
+
+(define (ascii-alphanumeric? c)
+  "Return #t when C is an ASCII letter or digit."
+  (let ((n (char->integer c)))
+    (or (and (>= n 48) (<= n 57))
+        (and (>= n 65) (<= n 90))
+        (and (>= n 97) (<= n 122)))))
+
+(define (hex-digits n width)
+  "Render the non-negative integer N as upper-case hexadecimal, left-padded
+with zeroes to at least WIDTH digits."
+  (let ((s (string-upcase (number->string n 16))))
+    (string-append (make-string (max 0 (- width (string-length s))) #\0) s)))
+
+(define (encode-each x encode-char)
+  "Return X with each character replaced by the string (ENCODE-CHAR c)."
+  (call-with-output-string (lambda (port)
+                             (string-for-each (lambda (c)
+                                                (display (encode-char c) port))
+                                              x))))
+
+(define (html-escape-unquoted-attribute x)
+  "Encode string X for an unquoted HTML attribute value.
+
+Every character that is not an ASCII letter, digit, `-', `_' or `.' becomes a
+numeric character reference, so the value cannot be ended early by whitespace
+or by a delimiter such as `>' or `/'.  Quoting the attribute and using
+`html-escape' is usually the better fix; this is for the cases where you
+cannot."
+  (encode-each x (lambda (c)
+                   (if (or (ascii-alphanumeric? c) (memv c '(#\- #\_ #\.)))
+                       (string c)
+                       (string-append "&#x"
+                                      (hex-digits (char->integer c) 2)
+                                      ";")))))
+
+(define (html-escape-js-string x)
+  "Encode string X for the inside of a JavaScript string literal.
+
+Every character except an ASCII letter or digit is written as a `\\xHH',
+`\\uHHHH' or surrogate-pair escape.  The result can therefore not close the
+literal, cannot carry a line separator into the code, and cannot end the
+enclosing <script> element with `</script' -- `<' and `/' both become escapes.
+Use it for the contents of a quoted string; write the quotes yourself.
+
+Because only ASCII letters, digits and backslash escapes survive, the result is
+also safe to drop straight into an HTML attribute -- quoted or not -- with no
+further escaping: no quote, angle bracket, ampersand or whitespace is left to
+break out with."
+  (encode-each x (lambda (c)
+                   (let ((code-point (char->integer c)))
+                     (cond
+                       ((ascii-alphanumeric? c) (string c))
+                       ((<= code-point #xFF)
+                        (string-append "\\x" (hex-digits code-point 2)))
+                       ((<= code-point #xFFFF)
+                        (string-append "\\u" (hex-digits code-point 4)))
+                       (else (let* ((v (- code-point #x10000))
+                                    (high (+ #xD800 (quotient v 1024)))
+                                    (low (+ #xDC00 (remainder v 1024))))
+                               (string-append "\\u" (hex-digits high 4)
+                                              "\\u" (hex-digits low 4)))))))))
+
+(define (html-escape-css-value x)
+  "Encode string X for use as a CSS value: an inline `style' declaration or a
+rule body.
+
+Every character except an ASCII letter or digit becomes a CSS hex escape, six
+hex digits followed by a space (CSS consumes that one space as the escape's
+terminator).  The value can therefore not close the declaration, the rule or
+the enclosing <style> element.
+
+Note that the space that terminates each escape survives in the result, so put
+it in a *quoted* attribute when it goes into a `style' attribute rather than
+leaning on the attribute's own quoting."
+  (encode-each x (lambda (c)
+                   (if (ascii-alphanumeric? c)
+                       (string c)
+                       (string-append "\\" (hex-digits (char->integer c) 6)
+                                      " ")))))
+
+(define* (html-escape-context x #:key (context 'text))
+  "Encode string X for the given output CONTEXT, picking the encoder that
+matches where the value is about to be written:
+
+  text                 HTML element text
+  attribute            a quoted HTML attribute value
+  unquoted-attribute   an unquoted HTML attribute value
+  js-string            the inside of a JavaScript string literal
+  css-value            a CSS value or an inline style declaration
+  url                  a URL component: a path segment, a query parameter
+                       name or value, or a fragment
+
+`url' delegates to `uri-encode', which percent-encodes every byte outside the
+RFC 3986 unreserved set.  Use it for a component and not for a whole URL, whose
+`://', `?' and `&' delimiters must survive."
+  (case context
+    ((text) (html-escape x))
+    ((attribute) (html-escape x))
+    ((unquoted-attribute) (html-escape-unquoted-attribute x))
+    ((js-string) (html-escape-js-string x))
+    ((css-value) (html-escape-css-value x))
+    ((url) (uri-encode x))
+    (else (error "kracht web: unknown escaping context" context))))
 
 ;;;
 ;;; URL-encoded bodies

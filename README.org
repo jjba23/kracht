@@ -38,8 +38,13 @@ what you need:
   ~evaluate-thunks~ and ~shuffle-fy~.
 - ~(kracht sql)~ — ~symbol->sql-column~, ~sql-column->symbol~,
   ~symbols->sql-columns-list~, ~sql-row->scheme-alist~, ~escape-sql-string~,
-  ~quote-sql-identifier~, ~pair->sql-assignment~ and ~value->sql-literal~.
-- ~(kracht web)~ — ~html-escape~, ~html-unescape~,
+  ~quote-sql-identifier~, ~pair->sql-assignment~ and ~value->sql-literal~,
+  plus the parameterized builders ~sql-insert~, ~sql-update~, ~sql-delete~,
+  ~sql-select~, ~sql-where-fragment~, ~sql-parameterize~ and
+  ~sql-placeholder~.
+- ~(kracht web)~ — ~html-escape~, ~html-unescape~, ~html-escape-context~ and
+  the per-context encoders ~html-escape-unquoted-attribute~,
+  ~html-escape-js-string~ and ~html-escape-css-value~,
   ~alist-from-url-encoded-body~, plus re-exports of ~uri-decode~ and
   ~uri-encode~.
 - ~(kracht io)~ — ~read-file-string~, ~write-file-string~,
@@ -91,10 +96,115 @@ Beyond the re-exports, Kracht adds convenient helpers such as:
 - ~assoc-ref-or~ and ~alist-set~ for working with association lists.
 - ~escape-sql-string~, ~value->sql-literal~ and ~pair->sql-assignment~ for
   building SQL, with single quotes escaped; ~quote-sql-identifier~ for safely
-  quoting column and table names.
+  quoting column and table names; and the parameterized builders, which bind
+  values instead of interpolating them.
 - ~html-escape~ / ~html-unescape~, ~base64-encode~ / ~base64-decode~,
   ~flatten-list~, ~string-drop-first-last*~, ~shuffle-fy~, ~syscall~,
   ~getenv-or~, ~get-short-commit-sha~ and more.
+
+
+* Escaping for the Right Context
+
+Escaping is not a property of a string; it is a property of where the string
+ends up.  ~html-escape~ covers HTML element text and quoted attribute values,
+but a value going into a JavaScript string, a CSS value, an unquoted attribute
+or a URL needs its own encoder -- each of those positions has a different way
+to end early.
+
+~html-escape-context~ is the one to reach for, and it names the position
+rather than the technique:
+
+#+begin_src scheme
+(html-escape-context "<b>" #:context 'text)                ;=> "&lt;b&gt;"
+(html-escape-context "a\"b" #:context 'attribute)         ;=> "a&quot;b"
+(html-escape-context "a b" #:context 'unquoted-attribute)  ;=> "a&#x20;b"
+(html-escape-context "a\"b" #:context 'js-string)         ;=> "a\\x22b"
+(html-escape-context "a\"b" #:context 'css-value)         ;=> "a\\000022 b"
+(html-escape-context "a/b?c=d&e" #:context 'url)           ;=> "a%2Fb%3Fc%3Dd%26e"
+#+end_src
+
+What each encoder guarantees:
+
+- ~html-escape-js-string~ writes everything outside ASCII letters and digits as
+  a ~\xHH~, ~\uHHHH~ or surrogate-pair escape.  Because ~<~ and ~/~ are escaped,
+  a value can never produce ~</script~ and end the enclosing script element,
+  and because only letters, digits and backslashes survive, the result needs no
+  further HTML escaping wherever you put it.
+- ~html-escape-css-value~ writes everything outside ASCII letters and digits as
+  a six-digit CSS escape (~\HHHHHH~ plus a space, which CSS consumes as the
+  terminator), so it cannot close the declaration, the rule or the ~<style>
+  element.  Those terminating spaces survive in the result, so put it in a
+  quoted ~style~ attribute.
+- ~html-escape-unquoted-attribute~ turns everything outside letters, digits and
+  ~-~ ~_~ ~.~ into a numeric character reference.  Quoting the attribute and
+  using ~html-escape~ is usually the better fix.
+- ~url~ delegates to ~uri-encode~, which percent-encodes every byte outside the
+  RFC 3986 unreserved set.  Use it for a component -- a path segment, a query
+  parameter name or value, a fragment -- not for a whole URL whose ~://~, ~?~
+  and ~&~ delimiters must survive.
+
+One rule that covers all of them: encode for the context the value is going
+into, and encode it last.  Escaping first and concatenating afterwards undoes
+the escaping.
+
+
+* Binding Values Instead of Interpolating Them
+
+The ~escape-sql-string~ family interpolates values into a statement, which is
+fine for a hand-checked query but easy to get subtly wrong.  The builders in
+~(kracht sql)~ take the other approach: they return a query whose values have
+been replaced by placeholders, together with the list of values to bind.
+
+#+begin_src scheme
+(use-modules (kracht prelude))
+
+(define q (sql-insert 'users '((name . "O'Brien") (age . 30))))
+(sql-query-sql q)      ;=> "INSERT INTO \"users\" (\"name\", \"age\") VALUES (?, ?)"
+(sql-query-params q)   ;=> ("O'Brien" 30)
+#+end_src
+
+Hand both to your driver.  The values are bound rather than spliced, so escaping
+never enters the picture and no value can change the shape of the statement.
+A condition list drives the WHERE clause:
+
+#+begin_src scheme
+(sql-query-sql
+ (sql-select 'users
+             #:columns '(id name)
+             #:where '((age > 18) (name in ("a" "b")) (deleted-at is null))
+             #:order-by '((name desc))
+             #:limit 10
+             #:offset 20))
+;;=> "SELECT \"id\", \"name\" FROM \"users\" WHERE \"age\" > ? AND \"name\" IN (?, ?) AND \"deleted_at\" IS NULL ORDER BY \"name\" DESC LIMIT ? OFFSET ?"
+#+end_src
+
+A condition is ~(column . value)~ for equality, ~(column operator value)~ for one
+of a fixed set of comparison operators, ~(column 'in values)~ or
+~(column 'not-in values)~ for membership, or ~(column 'is 'null)~ /
+~(column 'is-not 'null)~ for null tests.  Conditions are joined with ~AND~.
+Column names may be symbols (hyphens become underscores) or strings; they are
+quoted unless you pass ~#:quote-identifiers? #f~.  LIMIT and OFFSET are bound
+like any other value rather than spliced in.
+
+Placeholders are dialect-specific: ~#:style 'question~ (the default; ~?~, for
+SQLite, MySQL and JDBC), ~'numbered~ (~$1~, for PostgreSQL), ~'percent~ (~%s~,
+for pyformat drivers) or ~'dbi~ (~#?~, for guile-dbi).  Pass a procedure to
+supply your own.  For a statement the builders do not cover, ~sql-parameterize~
+fills a template containing ~?~ markers and checks that the number of markers
+matches the number of values:
+
+#+begin_src scheme
+(sql-query->values
+ (sql-parameterize "UPDATE t SET a = ? WHERE b = ?" (list 1 2) #:style 'numbered))
+;;=> "UPDATE t SET a = $1 WHERE b = $2"
+;;   (1 2)
+#+end_src
+
+Misuse is reported rather than silently mis-compiled: an operator outside the
+allow-list, an unknown placeholder style, a marker/value count mismatch, or an
+~INSERT~ with no columns all raise an error.  One caveat worth stating plainly:
+as in raw SQL, passing no conditions to ~sql-update~ or ~sql-delete~ produces a
+statement that touches every row.
 
 
 * Runtime Dependencies

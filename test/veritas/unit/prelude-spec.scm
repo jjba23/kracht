@@ -756,5 +756,365 @@
                                      (hash-set! h 'k 'found)
                                      (hash-ref h 'k))))))
 
+(define sql-builder-suite
+  (suite "SQL statement builder"
+         (test "INSERT binds every value"
+               (let ((q (sql-insert 'users '((name . "O'Brien")
+                                             (age . 30)))))
+                 (assert-equal #:name "values become placeholders"
+                               #:expect
+                               "INSERT INTO \"users\" (\"name\", \"age\") VALUES (?, ?)"
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "parameters follow row order"
+                               #:expect '("O'Brien" 30)
+                               #:got (sql-query-params q))))
+
+         (test "INSERT ... RETURNING"
+               (assert-equal #:name "a column list is quoted"
+                             #:expect
+                             "INSERT INTO \"users\" (\"name\") VALUES (?) RETURNING \"id\""
+                             #:got (sql-query-sql (sql-insert 'users
+                                                              '((name . "x"))
+                                                              #:returning '(id))))
+               (assert-equal #:name "the star stays unquoted"
+                             #:expect
+                             "INSERT INTO \"users\" (\"name\") VALUES (?) RETURNING *"
+                             #:got (sql-query-sql (sql-insert 'users
+                                                              '((name . "x"))
+                                                              #:returning '(*)))))
+
+         (test "placeholder dialects"
+               (let ((row '((name . "x"))))
+                 (assert-equal #:name "numbered (PostgreSQL)"
+                               #:expect
+                               "INSERT INTO \"users\" (\"name\") VALUES ($1)"
+                               #:got (sql-query-sql (sql-insert 'users row
+                                                                #:style 'numbered)))
+                 (assert-equal #:name "dbi (guile-dbi)"
+                               #:expect
+                               "INSERT INTO \"users\" (\"name\") VALUES (#?)"
+                               #:got (sql-query-sql (sql-insert 'users row
+                                                                #:style 'dbi)))
+                 (assert-equal #:name "percent (pyformat)"
+                               #:expect
+                               "INSERT INTO \"users\" (\"name\") VALUES (%s)"
+                               #:got (sql-query-sql (sql-insert 'users row
+                                                                #:style 'percent))))
+               (assert-equal #:name "a procedure supplies a custom style"
+                             #:expect "SELECT :p1"
+                             #:got (sql-query-sql
+                                    (sql-parameterize "SELECT ?" '(1)
+                                                      #:style (lambda (i)
+                                                                (format #f ":p~a" i))))))
+
+         (test "UPDATE binds the SET values before the WHERE ones"
+               (let ((q (sql-update 'users '((name . "A") (age . 9))
+                                    #:where '((id . 7)))))
+                 (assert-equal #:name "sql"
+                               #:expect
+                               "UPDATE \"users\" SET \"name\" = ?, \"age\" = ? WHERE \"id\" = ?"
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "parameters"
+                               #:expect '("A" 9 7)
+                               #:got (sql-query-params q)))
+               (assert-equal #:name "no conditions means no WHERE clause"
+                             #:expect "UPDATE \"users\" SET \"active\" = ?"
+                             #:got (sql-query-sql (sql-update 'users
+                                                              '((active . #t))))))
+
+         (test "DELETE conditions"
+               (let ((q (sql-delete 'users #:where '((id . 7)
+                                                     (deleted-at is null)))))
+                 (assert-equal #:name "sql"
+                               #:expect
+                               "DELETE FROM \"users\" WHERE \"id\" = ? AND \"deleted_at\" IS NULL"
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "a null test binds nothing"
+                               #:expect '(7)
+                               #:got (sql-query-params q))))
+
+         (test "SELECT with every clause"
+               (let ((q (sql-select 'users #:columns '(id name)
+                                    #:where '((age > 18)
+                                              (name in ("a" "b"))
+                                              (email like "%@x")
+                                              (id . 3))
+                                    #:order-by '((name desc) (id))
+                                    #:limit 10
+                                    #:offset 20)))
+                 (assert-equal #:name "sql"
+                               #:expect
+                               "SELECT \"id\", \"name\" FROM \"users\" WHERE \"age\" > ? AND \"name\" IN (?, ?) AND \"email\" LIKE ? AND \"id\" = ? ORDER BY \"name\" DESC, \"id\" LIMIT ? OFFSET ?"
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "limit and offset are bound, not spliced"
+                               #:expect '(18 "a" "b" "%@x" 3 10 20)
+                               #:got (sql-query-params q))
+                 (assert-equal #:name "a lone OFFSET numbers from the first free slot"
+                               #:expect "SELECT * FROM \"users\" OFFSET $1"
+                               #:got (sql-query-sql (sql-select 'users
+                                                                #:offset 20
+                                                                #:style 'numbered)))))
+
+         (test "IN and NOT IN"
+               (assert-equal #:name "an empty IN never matches"
+                             #:expect "SELECT * FROM \"users\" WHERE 1 = 0"
+                             #:got (sql-query-sql (sql-select 'users
+                                                              #:where '((id in ())))))
+               (assert-equal #:name "an empty NOT IN always matches"
+                             #:expect "SELECT * FROM \"users\" WHERE 1 = 1"
+                             #:got (sql-query-sql (sql-select 'users
+                                                              #:where '((id not-in ())))))
+               (assert-equal #:name "a populated NOT IN binds each element"
+                             #:expect '("SELECT * FROM \"users\" WHERE \"id\" NOT IN (?, ?, ?)"
+                                       (1 2 3))
+                             #:got (let ((q (sql-select 'users
+                                                       #:where '((id not-in (1 2 3))))))
+                                     (list (sql-query-sql q)
+                                           (sql-query-params q)))))
+
+         (test "identifier quoting is what keeps a value out of the SQL"
+               (let ((q (sql-select 'users #:where '((x . "1; DROP TABLE users")))))
+                 (assert-equal #:name "an injected value stays in the parameters"
+                               #:expect '("1; DROP TABLE users")
+                               #:got (sql-query-params q))
+                 (assert-false (string-contains (sql-query-sql q) "DROP")
+                               #:name "and never appears in the statement"))
+               (assert-equal #:name "a quote in a column name is doubled, not closed"
+                             #:expect
+                             "SELECT * FROM \"t\" WHERE \"x\"\"; DROP TABLE t\" = ?"
+                             #:got (sql-query-sql
+                                    (sql-select 't
+                                                #:where (list (cons "x\"; DROP TABLE t"
+                                                                   1)))))
+               (assert-equal #:name "#:quote-identifiers? #f emits bare names"
+                             #:expect "SELECT id FROM users WHERE first_name = ?"
+                             #:got (sql-query-sql
+                                    (sql-select 'users #:columns '(id)
+                                                #:where '((first-name . "J"))
+                                                #:quote-identifiers? #f))))
+
+         (test "WHERE fragments compose"
+               (let ((q (sql-where-fragment '((a . 1) (b . 2)))))
+                 (assert-equal #:name "the fragment carries its own conditions"
+                               #:expect " WHERE \"a\" = ? AND \"b\" = ?"
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "with its parameters"
+                               #:expect '(1 2)
+                               #:got (sql-query-params q)))
+               (assert-equal #:name "an empty condition list yields no clause"
+                             #:expect ""
+                             #:got (sql-query-sql (sql-where-fragment '())))
+               (assert-equal #:name "#:start-index continues another fragment"
+                             #:expect " WHERE \"a\" = $4"
+                             #:got (sql-query-sql (sql-where-fragment
+                                                   '((a . 1))
+                                                   #:start-index 4
+                                                   #:style 'numbered))))
+
+         (test "sql-parameterize fills a hand-written template"
+               (assert-equal #:name "question marks in order"
+                             #:expect '("SELECT * FROM t WHERE a = ? AND b = ?"
+                                       (1 2))
+                             #:got (let ((q (sql-parameterize
+                                            "SELECT * FROM t WHERE a = ? AND b = ?"
+                                            (list 1 2))))
+                                     (list (sql-query-sql q)
+                                           (sql-query-params q))))
+               (assert-equal #:name "renumbered for PostgreSQL"
+                             #:expect "UPDATE t SET a = $1 WHERE b = $2"
+                             #:got (sql-query-sql (sql-parameterize
+                                                   "UPDATE t SET a = ? WHERE b = ?"
+                                                   (list 1 2)
+                                                   #:style 'numbered)))
+               (assert-equal #:name "a template with no values is left alone"
+                             #:expect "SELECT 1"
+                             #:got (sql-query-sql (sql-parameterize "SELECT 1" '()))))
+
+         (test "misuse is reported, not silently mis-compiled"
+               (assert-equal #:name "too few values"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-parameterize "a = ? b = ?" (list 1)))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "too many values"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-parameterize "a = ?" (list 1 2)))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an operator outside the allow-list"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-select 't #:where '((a drop-table 1))))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an unknown placeholder style"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-placeholder 1 #:style 'nope))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an INSERT with no columns"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-insert 't '()))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "a condition that is not a pair or list"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-select 't #:where '(bogus)))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an unknown ORDER BY direction"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-select 't
+                                                        #:order-by '((a sideways))))
+                                          (lambda args 'rejected))))
+
+         (test "a query hands itself to the driver"
+               (let ((q (sql-select 't #:where '((id . 1)))))
+                 (assert-true (sql-query? q)
+                              #:name "sql-query?")
+                 (assert-equal #:name "sql-query->values returns the two values"
+                               #:expect
+                               '("SELECT * FROM \"t\" WHERE \"id\" = ?" (1))
+                               #:got (receive (sql params)
+                                         (sql-query->values q)
+                                       (list sql params)))
+                 (assert-equal #:name "sql-query->alist exposes the sql and the params"
+                               #:expect
+                               (list "SELECT * FROM \"t\" WHERE \"id\" = ?" '(1))
+                               #:got (let ((a (sql-query->alist q)))
+                                     (list (assoc-ref a 'sql)
+                                           (assoc-ref a 'params))))))))
+
+(define escaping-context-suite
+  (suite "context-aware escaping"
+         (test "html-escape-context picks an encoder per position"
+               (assert-equal #:name "text"
+                             #:expect "&lt;b&gt;"
+                             #:got (html-escape-context "<b>" #:context 'text))
+               (assert-equal #:name "quoted attribute"
+                             #:expect "a&quot;b"
+                             #:got (html-escape-context "a\"b"
+                                                        #:context 'attribute))
+               (assert-equal #:name "unquoted attribute"
+                             #:expect "a&#x20;b"
+                             #:got (html-escape-context "a b"
+                                                        #:context 'unquoted-attribute))
+               (assert-equal #:name "javascript string"
+                             #:expect "a\\x22b"
+                             #:got (html-escape-context "a\"b"
+                                                        #:context 'js-string))
+               (assert-equal #:name "css value"
+                             #:expect "a\\000022 b"
+                             #:got (html-escape-context "a\"b"
+                                                        #:context 'css-value))
+               (assert-equal #:name "url component"
+                             #:expect "a%2Fb%3Fc%3Dd%26e"
+                             #:got (html-escape-context "a/b?c=d&e"
+                                                        #:context 'url))
+               (assert-equal #:name "text is the default"
+                             #:expect (html-escape "<b>")
+                             #:got (html-escape-context "<b>"))
+               (assert-equal #:name "an unknown context is an error"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (html-escape-context "x"
+                                                                 #:context 'nope))
+                                          (lambda args 'rejected))))
+
+         (test "unquoted attribute values"
+               (assert-equal #:name "whitespace and delimiters cannot end the value"
+                             #:expect "a&#x20;b&#x3D;c&#x2F;d&#x3E;e"
+                             #:got (html-escape-unquoted-attribute "a b=c/d>e"))
+               (assert-equal #:name "letters, digits, - _ and . pass through"
+                             #:expect "abc-1_2.3"
+                             #:got (html-escape-unquoted-attribute "abc-1_2.3"))
+               (assert-equal #:name "quotes are encoded rather than ended"
+                             #:expect "&#x22;&#x27;"
+                             #:got (html-escape-unquoted-attribute "\"'"))
+               (assert-equal #:name "a non-BMP character stays one reference"
+                             #:expect "&#x1F600;"
+                             #:got (html-escape-unquoted-attribute
+                                    (string (integer->char #x1F600)))))
+
+         (test "JavaScript string literals"
+               (let ((encoded (html-escape-js-string
+                               "</script><script>alert(1)</script>")))
+                 (assert-false (string-contains encoded "<")
+                               #:name "no angle bracket survives")
+                 (assert-false (string-contains encoded "/")
+                               #:name
+                               "no slash survives, so </script is impossible"))
+               (assert-equal #:name "quotes and spaces become escapes"
+                             #:expect "O\\x27Reilly\\x20\\x22x\\x22"
+                             #:got (html-escape-js-string "O'Reilly \"x\""))
+               (assert-equal #:name "a backslash is escaped, not left to combine"
+                             #:expect "a\\x5Cb"
+                             #:got (html-escape-js-string "a\\b"))
+               (assert-equal #:name "a newline cannot break the literal"
+                             #:expect "a\\x0Ab"
+                             #:got (html-escape-js-string "a
+b"))
+               (assert-equal #:name "BMP characters use \\xHH"
+                             #:expect "caf\\xE9"
+                             #:got (html-escape-js-string (string #\c #\a #\f
+                                                                  (integer->char 233))))
+               (assert-equal #:name "the line separator U+2028 is escaped"
+                             #:expect "a\\u2028b"
+                             #:got (html-escape-js-string
+                                    (string-append "a"
+                                                   (string (integer->char #x2028))
+                                                   "b")))
+               (assert-equal #:name "a non-BMP character becomes a surrogate pair"
+                             #:expect "\\uD83D\\uDE00"
+                             #:got (html-escape-js-string
+                                    (string (integer->char #x1F600))))
+               (assert-equal #:name "alphanumerics stay readable"
+                             #:expect "abcXYZ019"
+                             #:got (html-escape-js-string "abcXYZ019"))
+               (assert-equal #:name
+                             "an encoded value needs no further HTML escaping"
+                             #:expect (html-escape-js-string "it's </script>")
+                             #:got (html-escape
+                                    (html-escape-js-string "it's </script>"))))
+
+         (test "CSS values"
+               (let ((encoded (html-escape-css-value
+                               "red; } body { background: url(x)")))
+                 (assert-false (string-contains encoded ";")
+                               #:name "no semicolon survives")
+                 (assert-false (string-contains encoded "}")
+                               #:name "no closing brace survives")
+                 (assert-false (string-contains encoded "{")
+                               #:name "no opening brace survives")
+                 (assert-false (string-contains encoded "(")
+                               #:name "no function call survives"))
+               (assert-equal #:name "a percent sign is escaped"
+                             #:expect "100\\000025 "
+                             #:got (html-escape-css-value "100%"))
+               (assert-equal #:name "alphanumerics stay readable"
+                             #:expect "TimesNewRoman10px"
+                             #:got (html-escape-css-value "TimesNewRoman10px"))
+               (assert-equal #:name "a non-BMP character uses a six-digit escape"
+                             #:expect "\\01F600 "
+                             #:got (html-escape-css-value
+                                    (string (integer->char #x1F600)))))
+
+         (test "every encoder leaves the empty string alone"
+               (assert-equal #:name "empty input, empty output"
+                             #:expect '("" "" "" "")
+                             #:got (list (html-escape-context "" #:context 'text)
+                                         (html-escape-unquoted-attribute "")
+                                         (html-escape-js-string "")
+                                         (html-escape-css-value ""))))))
+
 (define (spec)
-  (veritas-run prelude-suite another-suite robustness-suite reexports-suite))
+  (veritas-run prelude-suite another-suite robustness-suite reexports-suite
+               sql-builder-suite escaping-context-suite))

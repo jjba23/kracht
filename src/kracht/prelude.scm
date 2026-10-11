@@ -103,8 +103,25 @@
                                         quote-sql-identifier
                                         pair->sql-assignment
                                         value->sql-literal
+                                        make-sql-query
+                                        sql-query?
+                                        sql-query-sql
+                                        sql-query-params
+                                        sql-query->values
+                                        sql-query->alist
+                                        sql-placeholder
+                                        sql-where-fragment
+                                        sql-insert
+                                        sql-update
+                                        sql-delete
+                                        sql-select
+                                        sql-parameterize
                                         html-escape
                                         html-unescape
+                                        html-escape-context
+                                        html-escape-unquoted-attribute
+                                        html-escape-js-string
+                                        html-escape-css-value
                                         alist-from-url-encoded-body
                                         read-file-string
                                         write-file-string

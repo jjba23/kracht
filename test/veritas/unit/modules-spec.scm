@@ -67,7 +67,13 @@
                              #:got (value->sql-literal "O'Brien"))
                (assert-equal #:name "quote-sql-identifier"
                              #:expect "\"select\""
-                             #:got (quote-sql-identifier 'select)))
+                             #:got (quote-sql-identifier 'select))
+               (assert-equal #:name "sql-select binds its value"
+                             #:expect
+                             (list "SELECT * FROM \"t\" WHERE \"id\" = ?" '(1))
+                             #:got (let ((q (sql-select 't #:where '((id . 1)))))
+                                     (list (sql-query-sql q)
+                                           (sql-query-params q)))))
 
          (test "(kracht web) works standalone"
                (assert-equal #:name "html-escape"
@@ -82,6 +88,13 @@
                (assert-equal #:name "html-unescape numeric reference"
                              #:expect "'"
                              #:got (html-unescape "&#39;"))
+               (assert-equal #:name "html-escape-context javascript"
+                             #:expect "a\\x22b"
+                             #:got (html-escape-context "a\"b"
+                                                        #:context 'js-string))
+               (assert-equal #:name "html-escape-css-value"
+                             #:expect "100\\000025 "
+                             #:got (html-escape-css-value "100%"))
                (assert-equal #:name "alist-from-url-encoded-body"
                              #:expect '(("a" . "1"))
                              #:got (alist-from-url-encoded-body
@@ -114,7 +127,26 @@
                (assert-true (and (memq 'quote-sql-identifier
                                        (module-exports '(kracht sql)))
                                  #t)
-                            #:name "(kracht sql) exports quote-sql-identifier"))))
+                            #:name "(kracht sql) exports quote-sql-identifier")
+               (assert-true (and (memq 'sql-select
+                                       (module-exports '(kracht sql)))
+                                 #t)
+                            #:name "(kracht sql) exports sql-select")
+               (assert-true (and (memq 'sql-parameterize
+                                       (module-exports '(kracht sql)))
+                                 #t)
+                            #:name "(kracht sql) exports sql-parameterize")
+               (assert-true (and (memq 'sql-insert
+                                       (module-exports '(kracht prelude)))
+                                 #t)
+                            #:name "(kracht prelude) re-exports sql-insert")
+               (assert-true (and (memq 'html-escape-context
+                                       (module-exports '(kracht web)))
+                                 #t)
+                            #:name "(kracht web) exports html-escape-context")
+               (assert-false (memq 'html-escape-js-string
+                                   (module-exports '(kracht sql)))
+                             #:name "(kracht sql) does not export the web encoders"))))
 
 (define (spec)
   (veritas-run modules-suite))
