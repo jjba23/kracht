@@ -22,10 +22,107 @@ You can find the technical Guile Scheme API documentation  for Kracht here, wher
 
 https://jointhefreeworld.org/api-docs/kracht/API.html
 
+** Modules
+
+Kracht is organised into small, focused modules.  ~(kracht prelude)~ is the
+umbrella module that re-exports everything below, so a single
+~(use-modules (kracht prelude))~ keeps working; but you can also import only
+what you need:
+
+- ~(kracht strings)~ — string predicates and helpers (~non-empty-string?~,
+  ~empty-string?~, ~string-drop-first-last~, ~string-drop-first-last-n~,
+  ~string-drop-first-last-line~, ~base64-encode~ / ~base64-decode~), plus
+  re-exports of ~string->utf8~, ~utf8->string~ and ~string-replace-substring~.
+- ~(kracht lists)~ — ~flatten-list~, association-list helpers (~assoc-lens~,
+  ~assoc-ref-or~, ~assoc-ref-or-empty-str~, ~alist-set~, ~alist?~),
+  ~evaluate-thunks~ and ~shuffle-fy~.
+- ~(kracht sql)~ — ~symbol->sql-column~, ~sql-column->symbol~,
+  ~symbols->sql-columns-list~, ~sql-row->scheme-alist~, ~escape-sql-string~,
+  ~pair->sql-assignment~ and ~value->sql-literal~.
+- ~(kracht web)~ — ~html-escape~, ~html-unescape~,
+  ~alist-from-url-encoded-body~, plus re-exports of ~uri-decode~ and
+  ~uri-encode~.
+- ~(kracht io)~ — ~read-file-string~, ~write-file-string~,
+  ~build-asset-library~, ~syscall~, ~get-short-commit-sha~, ~getenv-or~ and
+  the port re-exports.
+
+** Re-exports from the standard library
+
+So that a single ~(use-modules (kracht prelude))~ is often enough, Kracht
+re-exports a large and growing set of commonly used procedures that Guile's
+core does not already provide:
+
+- *SRFI-1* list procedures: ~fold~, ~fold-right~, ~reduce~, ~reduce-right~,
+  ~filter-map~, ~find~, ~find-tail~, ~any~, ~every~, ~count~, ~list-index~,
+  ~list-tabulate~, ~take~, ~drop~, ~take-while~, ~drop-while~, ~span~,
+  ~break~, ~partition~, ~delete-duplicates~, ~append-map~, ~zip~,
+  ~unzip1~ through ~unzip5~, the ~lset-*~ family, the destructive
+  (~!~-suffixed) variants, and more.
+- *SRFI-2* ~and-let*~
+- *SRFI-8* ~receive~
+- *SRFI-11* ~let-values~, ~let*-values~
+- *SRFI-26* ~cut~, ~cute~
+- *SRFI-43* vector procedures: ~vector-fold~, ~vector-map~, ~vector-for-each~,
+  ~vector-append~, ~vector-count~, ~vector-unfold~, ~vector=~ and friends.
+- *SRFI-111* boxes: ~box~, ~box?~, ~unbox~, ~set-box!~
+- *SRFI-19* date and time: ~current-date~, ~make-date~, ~make-time~,
+  ~date->string~, ~string->date~, ~time-utc~, ~time-monotonic~,
+  ~time-difference~, and more.
+- =(ice-9 match)=: ~match~, ~match-lambda~, ~match-lambda*~, ~match-let~,
+  ~match-let*~, ~match-letrec~.
+- =(ice-9 pretty-print)=: ~pretty-print~, ~truncated-print~.
+- =(ice-9 format)='s ~format~ comes from Guile's core and is available as
+  usual.
+
+Guile's core module already provides the whole of *SRFI-13* (the string
+library), ~case-lambda~, string ports, records and parameters, so Kracht does
+not re-export those: you already get them for free.
+
+Hash tables are intentionally *not* re-exported. Guile's native
+~make-hash-table~ and SRFI-69's ~make-hash-table~ are different, incompatible
+types, and silently replacing one with the other could break existing code, so
+Kracht leaves Guile's native hash tables untouched.
+
+** Extra helpers
+
+Beyond the re-exports, Kracht adds convenient helpers such as:
+
+- ~read-file-string~ and ~write-file-string~ for whole-file reading/writing.
+- ~assoc-ref-or~ and ~alist-set~ for working with association lists.
+- ~escape-sql-string~, ~value->sql-literal~ and ~pair->sql-assignment~ for
+  building SQL, with single quotes escaped.
+- ~html-escape~ / ~html-unescape~, ~base64-encode~ / ~base64-decode~,
+  ~flatten-list~, ~string-drop-first-last*~, ~shuffle-fy~, ~syscall~,
+  ~getenv-or~, ~get-short-commit-sha~ and more.
+
 
 * Runtime Dependencies
 
-Kracht has minimal dependencies and basically only needs GNU Guile Scheme itself. If one desires to use base64 encoding and decoding functionality, the ~base64~ binary is expected to be in the ~PATH~ (this is the case for most Unix systems).
+Kracht has minimal dependencies and needs only GNU Guile Scheme itself (3.0 or
+newer).  In particular, base64 encoding and decoding are implemented in pure
+Scheme, so no external ~base64~ binary is required and no shell is spawned for
+them.
+
+
+* Behavior notes
+
+A few functions were tightened for robustness in recent versions:
+
+- ~non-empty-string?~ now returns ~#t~ only for actual non-empty strings.  It
+  used to return ~#t~ for any truthy value (for example ~#t~ itself).
+- ~base64-encode~ / ~base64-decode~ are pure Scheme.  The encoder no longer
+  appends a trailing newline and the decoder ignores whitespace in its input.
+- ~alist-from-url-encoded-body~ splits each segment on the first ~=~ only, so a
+  value may contain ~=~, and empty segments are skipped.
+- ~html-escape~ / ~html-unescape~ are single-pass now, so they are faster and
+  cannot double-encode an already-escaped entity.
+- ~shuffle-fy~ accepts a ~#:state~ argument for deterministic shuffling and no
+  longer reseeds Guile's global random state.
+- ~pair->sql-assignment~ and ~value->sql-literal~ escape single quotes; prefer
+  bound parameters rather than building SQL by string interpolation.
+- ~string-drop-first-last-n~ clamps ~n~ instead of raising an error.
+- ~get-short-commit-sha~ trims its output and accepts a ~#:default~ value for
+  when no SHA can be determined.
 
 ------------------------
 
