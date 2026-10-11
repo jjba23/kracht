@@ -100,6 +100,7 @@
                                         symbols->sql-columns-list
                                         sql-row->scheme-alist
                                         escape-sql-string
+                                        quote-sql-identifier
                                         pair->sql-assignment
                                         value->sql-literal
                                         html-escape

@@ -38,7 +38,7 @@ what you need:
   ~evaluate-thunks~ and ~shuffle-fy~.
 - ~(kracht sql)~ — ~symbol->sql-column~, ~sql-column->symbol~,
   ~symbols->sql-columns-list~, ~sql-row->scheme-alist~, ~escape-sql-string~,
-  ~pair->sql-assignment~ and ~value->sql-literal~.
+  ~quote-sql-identifier~, ~pair->sql-assignment~ and ~value->sql-literal~.
 - ~(kracht web)~ — ~html-escape~, ~html-unescape~,
   ~alist-from-url-encoded-body~, plus re-exports of ~uri-decode~ and
   ~uri-encode~.
@@ -90,7 +90,8 @@ Beyond the re-exports, Kracht adds convenient helpers such as:
 - ~read-file-string~ and ~write-file-string~ for whole-file reading/writing.
 - ~assoc-ref-or~ and ~alist-set~ for working with association lists.
 - ~escape-sql-string~, ~value->sql-literal~ and ~pair->sql-assignment~ for
-  building SQL, with single quotes escaped.
+  building SQL, with single quotes escaped; ~quote-sql-identifier~ for safely
+  quoting column and table names.
 - ~html-escape~ / ~html-unescape~, ~base64-encode~ / ~base64-decode~,
   ~flatten-list~, ~string-drop-first-last*~, ~shuffle-fy~, ~syscall~,
   ~getenv-or~, ~get-short-commit-sha~ and more.
@@ -114,8 +115,19 @@ A few functions were tightened for robustness in recent versions:
   appends a trailing newline and the decoder ignores whitespace in its input.
 - ~alist-from-url-encoded-body~ splits each segment on the first ~=~ only, so a
   value may contain ~=~, and empty segments are skipped.
-- ~html-escape~ / ~html-unescape~ are single-pass now, so they are faster and
-  cannot double-encode an already-escaped entity.
+- ~html-escape~ now escapes the ampersand too, so it covers all five
+  HTML-significant characters (~&~, ~<~, ~>~, ~"~ and ~'~).  Escaping is
+  deliberately *not* idempotent: ~"&amp;"~ becomes ~"&amp;amp;"~, so escape
+  raw text exactly once.  It no longer rewrites ~/~, ~*~, ~$~ or ~%~, which
+  HTML never required and which corrupted plain text; ~html-unescape~ still
+  decodes those entities, plus numeric character references such as ~&#39;~ and
+  ~&#x27;~ and the uppercase legacy spellings ~&AMP;~/~&LT;~/~&GT;~/~&QUOT;~.
+- ~escape-sql-string~ rejects strings containing a NUL character, which no SQL
+  text type can store, and accepts ~#:escape-backslash?~ for MySQL/MariaDB,
+  whose parser also treats a backslash as an escape character.
+- ~quote-sql-identifier~ is new: it wraps a symbol or string in ANSI double
+  quotes and doubles any embedded double quote, for column and table names
+  that come from data.
 - ~shuffle-fy~ accepts a ~#:state~ argument for deterministic shuffling and no
   longer reseeds Guile's global random state.
 - ~pair->sql-assignment~ and ~value->sql-literal~ escape single quotes; prefer

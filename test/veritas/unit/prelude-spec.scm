@@ -139,9 +139,9 @@
                (assert-equal #:got (html-escape (html-unescape
                                                  "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"))
                              #:expect
-                             "&lt;div&gt;&apos;test&apos;&lt;&sol;div&gt;"
+                             "&lt;div&gt;&apos;test&apos;&lt;/div&gt;"
                              #:name
-                             "Unescape then escape (assuming valid entities)")
+                             "Unescape then escape round-trips the significant characters")
                (assert-equal #:got (html-escape (html-unescape
                                                  "&apos;&aacute;&eacute;&iacute;&oacute;&uacute;&quot;"))
                 #:expect
@@ -512,16 +512,35 @@
                              #:expect "hello"
                              #:got (base64-decode "aGVs\nbG8=")))
 
-         (test "html escaping is a single pass"
-               (assert-equal #:name "ampersand is left untouched"
-                             #:expect "a & b"
+         (test "html escaping covers the HTML-significant characters"
+               (assert-equal #:name "ampersand is escaped"
+                             #:expect "a &amp; b"
                              #:got (html-escape "a & b"))
-               (assert-equal #:name "slashes, stars, dollars and percent"
-                             #:expect "a&sol;b&ast;c&dollar;&percnt;"
+               (assert-equal #:name "angle brackets are escaped"
+                             #:expect "&lt;script&gt;"
+                             #:got (html-escape "<script>"))
+               (assert-equal #:name "both quote styles are escaped"
+                             #:expect "&quot;x&quot; &apos;y&apos;"
+                             #:got (html-escape "\"x\" 'y'"))
+               (assert-equal #:name
+                             "slashes, stars, dollars and percent are left alone"
+                             #:expect "a/b*c$%"
                              #:got (html-escape "a/b*c$%"))
-               (assert-equal #:name "unescape reverses it"
+               (assert-equal #:name "escaping is not idempotent"
+                             #:expect "&amp;amp;"
+                             #:got (html-escape "&amp;"))
+               (assert-equal #:name "legacy entities are still decoded"
                              #:expect "a/b*c$%"
                              #:got (html-unescape "a&sol;b&ast;c&dollar;&percnt;"))
+               (assert-equal #:name "numeric character references are decoded"
+                             #:expect "'&"
+                             #:got (html-unescape "&#39;&#x26;"))
+               (assert-equal #:name "uppercase legacy entities are decoded"
+                             #:expect "&<>\""
+                             #:got (html-unescape "&AMP;&LT;&GT;&QUOT;"))
+               (assert-equal #:name "malformed numeric references are untouched"
+                             #:expect "&#; &#x; &#0; &#xg;"
+                             #:got (html-unescape "&#; &#x; &#0; &#xg;"))
                (assert-equal #:name "unknown entity left untouched"
                              #:expect "&unknown;"
                              #:got (html-unescape "&unknown;")))
@@ -554,7 +573,25 @@
                (assert-equal #:name "pair->sql-assignment hyphenated column"
                              #:expect "first_name = 'Josep'"
                              #:got (pair->sql-assignment
-                                    '(first-name . "Josep"))))
+                                    '(first-name . "Josep")))
+               (assert-equal #:name "escape-sql-string rejects NUL"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (escape-sql-string (string #\nul)))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name
+                             "escape-sql-string doubles backslashes on request"
+                             #:expect "a\\\\b''c"
+                             #:got (escape-sql-string "a\\b'c"
+                                                      #:escape-backslash? #t))
+               (assert-equal #:name "quote-sql-identifier wraps a symbol"
+                             #:expect "\"select\""
+                             #:got (quote-sql-identifier 'select))
+               (assert-equal #:name
+                             "quote-sql-identifier doubles embedded quotes"
+                             #:expect "\"we\"\"ird\""
+                             #:got (quote-sql-identifier "we\"ird")))
 
          (test "file read/write helpers"
                (assert-equal #:name "write-file-string returns the character count"

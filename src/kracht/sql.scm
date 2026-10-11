@@ -23,6 +23,7 @@
                                symbols->sql-columns-list
                                sql-row->scheme-alist
                                escape-sql-string
+                               quote-sql-identifier
                                pair->sql-assignment
                                value->sql-literal))
 
@@ -52,12 +53,46 @@ If XS is not an alist, it returns XS unaltered."
                   (cdr pair))) xs))
     (else xs)))
 
-(define (escape-sql-string s)
+(define (sql-text s)
+  "Render S as the string a SQL literal would carry: strings pass through,
+anything else is formatted with `format`.  Raises an error if S contains a NUL
+character, which no SQL text type can store."
+  (let ((str (if (string? s) s
+                 (format #f "~a" s))))
+    (when (string-index str #\nul)
+      (error "kracht sql: a SQL text value cannot contain NUL characters" s))
+    str))
+
+(define* (escape-sql-string s #:key escape-backslash?)
   "Escape string S for inclusion inside a single-quoted SQL literal by
 doubling each single quote (e.g. \"O'Brien\" becomes \"O''Brien\").  Non-string
-values are formatted with `format` first."
-  (string-replace-substring (if (string? s) s
-                                (format #f "~a" s)) "'" "''"))
+values are formatted with `format` first.
+
+Doubling quotes alone is correct for PostgreSQL, SQLite, and standard SQL,
+where a backslash is an ordinary character.  Pass #:escape-backslash? #t for
+MySQL/MariaDB, whose default parser also treats a backslash as an escape
+character inside string literals.
+
+A NUL character is rejected with an error rather than emitted, since no SQL
+text type can store one."
+  (let ((quoted (string-replace-substring (sql-text s) "'" "''")))
+    (if escape-backslash?
+        (string-replace-substring quoted "\\" "\\\\")
+        quoted)))
+
+(define (quote-sql-identifier name)
+  "Render NAME (a symbol or string) as a safely delimited SQL identifier,
+wrapped in ANSI double quotes with any embedded double quote doubled.
+
+Use this for column and table names that come from data.  `symbol->sql-column'
+only maps hyphens to underscores and does not defend against a name that
+contains quotes or other punctuation.  A NUL character is rejected."
+  (let ((str (if (symbol? name) (symbol->string name)
+                 (format #f "~a" name))))
+    (when (string-index str #\nul)
+      (error "kracht sql: a SQL identifier cannot contain NUL characters"
+             name))
+    (string-append "\"" (string-replace-substring str "\"" "\"\"") "\"")))
 
 (define (pair->sql-assignment a)
   "Convert a key-value pair A into a SQL assignment clause string

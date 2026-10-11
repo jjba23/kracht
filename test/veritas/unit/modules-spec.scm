@@ -64,15 +64,24 @@
                              #:got (sql-column->symbol "first_name"))
                (assert-equal #:name "value->sql-literal escapes quotes"
                              #:expect "'O''Brien'"
-                             #:got (value->sql-literal "O'Brien")))
+                             #:got (value->sql-literal "O'Brien"))
+               (assert-equal #:name "quote-sql-identifier"
+                             #:expect "\"select\""
+                             #:got (quote-sql-identifier 'select)))
 
          (test "(kracht web) works standalone"
                (assert-equal #:name "html-escape"
                              #:expect "&apos;"
                              #:got (html-escape "'"))
+               (assert-equal #:name "html-escape ampersand"
+                             #:expect "a &amp; b"
+                             #:got (html-escape "a & b"))
                (assert-equal #:name "html-unescape"
                              #:expect "<"
                              #:got (html-unescape "&lt;"))
+               (assert-equal #:name "html-unescape numeric reference"
+                             #:expect "'"
+                             #:got (html-unescape "&#39;"))
                (assert-equal #:name "alist-from-url-encoded-body"
                              #:expect '(("a" . "1"))
                              #:got (alist-from-url-encoded-body
@@ -101,7 +110,11 @@
                (assert-true (and (memq 'value->sql-literal
                                        (module-exports '(kracht sql)))
                                  #t)
-                            #:name "(kracht sql) exports value->sql-literal"))))
+                            #:name "(kracht sql) exports value->sql-literal")
+               (assert-true (and (memq 'quote-sql-identifier
+                                       (module-exports '(kracht sql)))
+                                 #t)
+                            #:name "(kracht sql) exports quote-sql-identifier"))))
 
 (define (spec)
   (veritas-run modules-suite))

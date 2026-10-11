@@ -27,8 +27,14 @@
 ;;; HTML escaping
 ;;;
 
+;; Characters `html-escape' turns into named entities.  The first five are the
+;; characters HTML requires escaping in text and attribute contexts; the rest
+;; are the accented Latin letters kracht has always emitted as entities.
 (define html-escape-alist
-  '(("'" "&apos;")
+  '(("&" "&amp;")
+    ("<" "&lt;")
+    (">" "&gt;")
+    ("'" "&apos;")
     ("\"" "&quot;")
     ("á" "&aacute;")
     ("à" "&agrave;")
@@ -54,10 +60,6 @@
     ("Ç" "&Ccedil;")
     ("ñ" "&ntilde;")
     ("Ñ" "&Ntilde;")
-    ("<" "&lt;")
-    (">" "&gt;")
-    ("/" "&sol;")
-    ("*" "&ast;")
     ("å" "&aring;")
     ("æ" "&aelig;")
     ("ë" "&euml;")
@@ -75,8 +77,6 @@
     ("Ë" "&Euml;")
     ("Ä" "&Auml;")
     ("Ï" "&Iuml;")
-    ("$" "&dollar;")
-    ("%" "&percnt;")
     ("ã" "&atilde;")
     ("Ã" "&Atilde;")
     ("õ" "&otilde;")
@@ -89,15 +89,35 @@
          (cons (string-ref (car entity) 0)
                (cadr entity))) html-escape-alist))
 
+;; Entities `html-unescape' understands but `html-escape' no longer produces.
+;; `&sol;', `&ast;', `&dollar;' and `&percnt;' are not HTML-significant and
+;; escaping them corrupted plain text, so they are decode-only now; the
+;; uppercase forms are legacy HTML spellings of the basic five.
+(define html-unescape-only-alist
+  '(("/" "&sol;")
+    ("*" "&ast;")
+    ("$" "&dollar;")
+    ("%" "&percnt;")
+    ("&" "&AMP;")
+    ("<" "&LT;")
+    (">" "&GT;")
+    ("\"" "&QUOT;")))
+
 (define html-unescape-entities
   (map (lambda (entity)
          (cons (cadr entity)
-               (string-ref (car entity) 0))) html-escape-alist))
+               (string-ref (car entity) 0)))
+       (append html-escape-alist html-unescape-only-alist)))
 
 (define (html-escape x)
-  "Replace special or non-ASCII characters in string X with their HTML
-entity equivalents.  The string is processed in a single pass, so an
-already-escaped entity in X is not escaped a second time."
+  "Replace the characters of string X that are significant to HTML --
+the ampersand, less-than, greater-than, double-quote and apostrophe
+characters -- plus the accented Latin letters kracht renders as named
+entities, with their entity equivalents.
+
+X is processed one character at a time, so escaping is deliberately *not*
+idempotent: `&amp;' becomes `&amp;amp;'.  Escape raw text exactly once and
+never escape output that has already been escaped."
   (call-with-output-string (lambda (port)
                              (string-for-each (lambda (c)
                                                 (let ((entity (assoc c
@@ -106,10 +126,29 @@ already-escaped entity in X is not escaped a second time."
                                                                (cdr entity) c)
                                                            port))) x))))
 
+(define (numeric-character-reference name)
+  "Decode the full entity string NAME (for example `&#39;' or `&#x27;') into
+its character, or return #f when NAME is not a well-formed numeric character
+reference (the digits must be non-empty, in range, and of the right radix)."
+  (and (>= (string-length name) 4)
+       (char=? (string-ref name 1) #\#)
+       (let* ((body (substring name 2 (- (string-length name) 1)))
+              (hex? (and (> (string-length body) 0)
+                         (memv (string-ref body 0) '(#\x #\X))))
+              (digits (if hex? (substring body 1) body))
+              (radix (if hex? 16 10))
+              (digit-chars (if hex? "0123456789abcdefABCDEF" "0123456789")))
+         (and (> (string-length digits) 0)
+              (string-every (lambda (d)
+                              (string-index digit-chars d)) digits)
+              (let ((n (string->number digits radix)))
+                (and n (> n 0) (<= n #x10FFFF) (integer->char n)))))))
+
 (define (html-unescape x)
-  "Convert HTML entities inside string X back into their original character
-equivalents.  The string is processed in a single pass; unknown or malformed
-entities are left untouched."
+  "Convert HTML entities inside string X back into their original characters.
+Both named entities (`&lt;', `&aacute;') and numeric character references
+(`&#39;', `&#x27;') are decoded.  The string is processed in a single pass;
+unknown or malformed entities are copied through unchanged."
   (let ((len (string-length x)))
     (call-with-output-string (lambda (port)
                                (let loop
@@ -122,12 +161,14 @@ entities are left untouched."
                                                (let* ((name (substring x i
                                                                        (+ semi
                                                                         1)))
-                                                      (entity (assoc name
-                                                               html-unescape-entities)))
+                                                      (entity (or (assoc-ref
+                                                                   html-unescape-entities
+                                                                   name)
+                                                                  (numeric-character-reference
+                                                                   name))))
                                                  (if entity
                                                      (begin
-                                                       (display (cdr entity)
-                                                                port)
+                                                       (display entity port)
                                                        (loop (+ semi 1)))
                                                      (begin
                                                        (display c port)
