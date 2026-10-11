@@ -19,8 +19,8 @@
 ;; named character references below are the ones the HTML standard defines --
 ;; the WHATWG list published as
 ;;   https://html.spec.whatwg.org/entities.json
-;; and bundled with Python as html.entities.html5.  Regenerate the file with
-;; tools/generate-html-entities.py rather than editing it.
+;; and copied unmodified into tools/html5-entities.json.  Regenerate the file
+;; with tools/generate-html-entities.scm rather than editing it.
 ;;
 ;; Only references that end in a semicolon are kept.  The HTML parser also
 ;; accepts a legacy set of unterminated forms (`&amp' with no `;'), but only in
@@ -2171,12 +2171,15 @@
 ;; which is Latin-1 plus the common symbols, together with the five
 ;; characters HTML is sensitive to and `&apos;'.  Decoding is deliberately
 ;; broader than encoding -- this is the list worth writing, while
-;; `html-named-entities' is the list worth understanding.
+;; `html-named-entities' is the list worth understanding.  Which names are
+;; worth writing is a choice rather than data, so the set lives in
+;; tools/generate-html-entities.scm.
 ;;
-;; `&lang;' and `&rang;' are the two HTML4 names deliberately left out:
-;; HTML5 reads them as the mathematical angle brackets U+27E8 and U+27E9
-;; rather than the CJK ones U+2329 and U+232A, so a character written
-;; with either entity would not come back from decoding unchanged.
+;; Each entry stands for the character the standard says its reference stands
+;; for, which is not always the character HTML4 named it for: `&lang;' and
+;; `&rang;' mean the mathematical angle brackets U+27E8 and U+27E9 here,
+;; because that is how HTML5 reads them.  The CJK angle brackets U+2329 and
+;; U+232A have no reference worth writing, and pass through as themselves.
 (define html-escape-entities
   '(
     ("\"" . "&quot;")
@@ -2430,6 +2433,8 @@
     ("♣" . "&clubs;")
     ("♥" . "&hearts;")
     ("♦" . "&diams;")
+    ("⟨" . "&lang;")
+    ("⟩" . "&rang;")
     ))
 
 ;; Both tables are looked up by key, so build the hash tables once here

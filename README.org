@@ -178,17 +178,35 @@ the escaping.
 ** The entity tables
 
 ~html-escape~ and ~html-unescape~ are driven by two tables in
-~(kracht html-entities)~.  That module is data, and it is generated rather
-than written by hand: ~tools/generate-html-entities.py~ writes it out from the
-tables Python bundles (the WHATWG list the HTML standard publishes as
-~entities.json~, and the HTML4 set), so a couple of thousand references are
-not transcribed by eye.  Re-run the script rather than editing the file.
+~(kracht html-entities)~.  That module is data, and it is generated rather than
+written by hand: ~tools/generate-html-entities.scm~ writes it out, in Scheme,
+from the standard's own list, so a couple of thousand references are not
+transcribed by eye.  Run it from the project root -- it needs nothing but
+Guile and ~guile-json~, which the test suite already brings in:
+
+#+begin_src sh
+guile tools/generate-html-entities.scm
+#+end_src
+
+The standard's data is vendored as ~tools/html5-entities.json~, an unmodified
+copy of the list the HTML standard publishes (the ~entities.json~ at
+~https://html.spec.whatwg.org/entities.json~), so generating is offline and
+reproducible.  Refresh the copy, rather than editing it, with:
+
+#+begin_src sh
+curl -o tools/html5-entities.json https://html.spec.whatwg.org/entities.json
+#+end_src
+
+What Kracht is willing to *write* is a choice rather than data, so it is a
+list in the generator: the HTML 4.01 entity names, plus ~apos~.  A name is
+written for the character the standard's own table gives it, which is what
+keeps the two tables consistent.
 
 - ~html-named-entities~ — the *2125* named character references HTML5 defines
   that end in ~;~, including the 93 that stand for two code points rather than
   one (~&NotEqualTilde;~ is ~U+2242 U+0338~).  This is what ~html-unescape~
   reads.
-- ~html-escape-entities~ — the *251* characters ~html-escape~ is willing to
+- ~html-escape-entities~ — the *253* characters ~html-escape~ is willing to
   write as a named entity: the HTML4 set (Latin-1, plus the common symbols
   from currency signs to Greek letters, arrows, and the mathematical and
   card-suit characters) together with the five characters HTML is sensitive
@@ -204,15 +222,20 @@ every reference -- the HTML5-only spellings such as ~&sol;~, ~&ast;~ and
 forms ~&AMP;~, ~&LT;~, ~&GT;~ and ~&QUOT;~ -- while ~html-escape~ writes only
 the names that are safe in every context and unambiguous.
 
-That last word carries weight.  Every reference the encoder writes decodes
-back to exactly the character it came from, and the generator checks it: a
-character is only kept in ~html-escape-entities~ if the reference it would be
-written as decodes back to that same character.  Two HTML4 names fail that
-test, so Kracht does not write them: ~&lang;~ and ~&rang;~ name the CJK angle
-brackets ~U+2329~ and ~U+232A~ in HTML4, but HTML5 reads the very same
-references as the mathematical angle brackets ~U+27E8~ and ~U+27E9~.  Writing
-~&lang;~ for ~U+2329~ would therefore silently change the character on the way
-back in, so ~U+2329~ and ~U+232A~ pass through as themselves.
+That last word carries weight, and one pair of references shows why.  Each
+entry stands for the character the *standard* says its reference stands for,
+not the one HTML4 named it for: ~&lang;~ and ~&rang;~ name the CJK angle
+brackets ~U+2329~ and ~U+232A~ in HTML4, but HTML5 reads those very references
+as the mathematical angle brackets ~U+27E8~ and ~U+27E9~.  The table follows
+the standard, so ~&lang;~ is written for ~U+27E8~ -- which is what a browser
+will decode it back to -- and the CJK brackets ~U+2329~ and ~U+232A~ have no
+reference worth writing, so they pass through as themselves.
+
+An earlier version of this table keyed those two entries by the HTML4
+characters, which made the entry disagree with itself: escaping ~U+2329~ as
+~&lang;~ meant a browser decoding the document got ~U+27E8~ back.  Because the
+generator now takes both the names and the characters from the standard, an
+entry like that cannot be produced.
 
 
 * Binding Values Instead of Interpolating Them

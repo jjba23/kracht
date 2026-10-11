@@ -127,7 +127,7 @@
                              #:expect "&lt;"
                              #:got (html-char-ref #\<))
                (assert-equal #:name "the escape table is the HTML4 set"
-                             #:expect 251
+                             #:expect 253
                              #:got (length html-escape-entities))
                (assert-equal #:name "and the decode table is the HTML5 one"
                              #:expect 2125

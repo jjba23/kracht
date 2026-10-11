@@ -48,15 +48,24 @@
                (assert-equal #:name "every HTML5 reference ending in a semicolon"
                              #:expect 2125
                              #:got (length html-named-entities))
-               (assert-equal #:name "the escape set is the HTML4 one, less two"
-                             #:expect 251
+               (assert-equal #:name "the escape set is the HTML4 one"
+                             #:expect 253
                              #:got (length html-escape-entities)))
 
-         (test "the two HTML4 names HTML5 reads differently are not written"
+         (test "a reference stands for the character the standard gives it"
                ;; `&lang;' and `&rang;' name the CJK angle brackets U+2329 and
                ;; U+232A in HTML4, but the mathematical ones U+27E8 and U+27E9
-               ;; in HTML5.  Writing either entity would change the character.
-               (assert-equal #:name "the encoder declines to write them"
+               ;; in HTML5.  The table follows the standard, so the entry is
+               ;; the mathematical bracket and the CJK one has no reference.
+               (assert-equal #:name "the mathematical brackets are what is written"
+                             #:expect (list "&lang;" "&rang;")
+                             #:got (list (html-char-ref (integer->char #x27E8))
+                                         (html-char-ref (integer->char #x27E9))))
+               (assert-equal #:name "and they survive a round trip"
+                             #:expect (chars #x27E8 #x27E9)
+                             #:got (html-unescape (html-escape (chars #x27E8
+                                                                       #x27E9))))
+               (assert-equal #:name "the CJK brackets have no reference to write"
                              #:expect (list #f #f)
                              #:got (list (html-char-ref (integer->char #x2329))
                                          (html-char-ref (integer->char #x232A))))
