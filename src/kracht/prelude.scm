@@ -112,6 +112,9 @@
                                         sql-placeholder
                                         sql-where-fragment
                                         sql-insert
+                                        sql-insert-many
+                                        sql-upsert
+                                        sql-upsert-many
                                         sql-update
                                         sql-delete
                                         sql-select

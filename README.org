@@ -39,9 +39,9 @@ what you need:
 - ~(kracht sql)~ — ~symbol->sql-column~, ~sql-column->symbol~,
   ~symbols->sql-columns-list~, ~sql-row->scheme-alist~, ~escape-sql-string~,
   ~quote-sql-identifier~, ~pair->sql-assignment~ and ~value->sql-literal~,
-  plus the parameterized builders ~sql-insert~, ~sql-update~, ~sql-delete~,
-  ~sql-select~, ~sql-where-fragment~, ~sql-parameterize~ and
-  ~sql-placeholder~.
+  plus the parameterized builders ~sql-insert~, ~sql-insert-many~,
+  ~sql-upsert~, ~sql-upsert-many~, ~sql-update~, ~sql-delete~, ~sql-select~,
+  ~sql-where-fragment~, ~sql-parameterize~ and ~sql-placeholder~.
 - ~(kracht web)~ — ~html-escape~, ~html-unescape~, ~html-escape-context~ and
   the per-context encoders ~html-escape-unquoted-attribute~,
   ~html-escape-js-string~ and ~html-escape-css-value~,
@@ -185,6 +185,55 @@ of a fixed set of comparison operators, ~(column 'in values)~ or
 Column names may be symbols (hyphens become underscores) or strings; they are
 quoted unless you pass ~#:quote-identifiers? #f~.  LIMIT and OFFSET are bound
 like any other value rather than spliced in.
+
+Several rows go in with one statement.  The column list comes from the first
+row; every other row must carry the same columns, which are reordered to match,
+so a row that is missing a column or carrying an extra one is an error rather
+than a silently shifted value:
+
+#+begin_src scheme
+(sql-insert-many 'users (list '((name . "A") (age . 1))
+                              '((name . "B") (age . 2))))
+;; sql:    INSERT INTO "users" ("name", "age") VALUES (?, ?), (?, ?)
+;; params: ("A" 1 "B" 2)
+#+end_src
+
+An upsert says what a conflict means.  PostgreSQL and SQLite use ~ON CONFLICT~,
+which needs a conflict target:
+
+#+begin_src scheme
+(sql-upsert 'users '((id . 1) (name . "A")) #:conflict-target 'id)
+;; sql: INSERT INTO "users" ("id", "name") VALUES (?, ?)
+;;      ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name"
+
+(sql-upsert 'users '((id . 1) (name . "A")) #:update 'nothing)
+;; sql: INSERT INTO "users" ("id", "name") VALUES (?, ?) ON CONFLICT DO NOTHING
+#+end_src
+
+MySQL and MariaDB take no conflict target -- the key comes from a unique index --
+and spell the same thing ~ON DUPLICATE KEY UPDATE~:
+
+#+begin_src scheme
+(sql-upsert 'users '((id . 1) (name . "A")) #:dialect 'mysql)
+;; sql: INSERT INTO `users` (`id`, `name`) VALUES (?, ?)
+;;      ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `name` = VALUES(`name`)
+#+end_src
+
+~#:update~ takes ~'auto~ (the default: overwrite every inserted column that is
+not the conflict target), ~'nothing~, or a list of columns.  Every value in the
+conflict action comes from the row being inserted, through ~EXCLUDED~ or
+~VALUES()~, so an upsert binds no parameters beyond the ones its ~INSERT~
+already does and the numbering still lines up.  A value computed from the old
+one -- a counter, say -- is outside what the builder expresses; write that
+statement with ~sql-parameterize~.
+
+~#:dialect~ also decides how identifiers are delimited.  The default ~'ansi~
+(also ~'postgres~ and ~'sqlite~) uses double quotes; ~'mysql~ and ~'mariadb~
+use backticks.  This is not cosmetic: MySQL reads a double-quoted token as a
+string unless ~ANSI_QUOTES~ is enabled, so ~id = "id"~ would compare a column
+against the literal text ~id~.  ~sql-insert~, ~sql-insert-many~, ~sql-upsert~,
+~sql-upsert-many~, ~sql-update~, ~sql-delete~, ~sql-select~ and
+~sql-where-fragment~ all accept it.
 
 Placeholders are dialect-specific: ~#:style 'question~ (the default; ~?~, for
 SQLite, MySQL and JDBC), ~'numbered~ (~$1~, for PostgreSQL), ~'percent~ (~%s~,

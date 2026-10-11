@@ -36,6 +36,9 @@
                                sql-placeholder
                                sql-where-fragment
                                sql-insert
+                               sql-insert-many
+                               sql-upsert
+                               sql-upsert-many
                                sql-update
                                sql-delete
                                sql-select
@@ -77,6 +80,29 @@ character, which no SQL text type can store."
       (error "kracht sql: a SQL text value cannot contain NUL characters" s))
     str))
 
+;; Dialects disagree about how an identifier is delimited.  ANSI SQL -- and
+;; therefore PostgreSQL and SQLite -- uses double quotes, while MySQL uses a
+;; backtick and reads a double-quoted token as a string unless ANSI_QUOTES is
+;; enabled.  Getting this wrong is not a style question: it silently changes
+;; what the statement means.
+(define (mysql-dialect? dialect)
+  "Return #t when DIALECT is `mysql' or `mariadb'."
+  (memq dialect '(mysql mariadb)))
+
+(define (known-dialect? dialect)
+  "Return #t when DIALECT is a dialect kracht knows how to render."
+  (memq dialect '(ansi postgres postgresql sqlite mysql mariadb)))
+
+(define (sql-identifier-style quote-identifiers? dialect)
+  "Return how identifiers should be rendered: #f to leave them bare, or the
+symbol `ansi' or `mysql' to delimit them the way DIALECT requires."
+  (unless (known-dialect? dialect)
+    (error "kracht sql: unknown dialect" dialect))
+  (cond
+    ((not quote-identifiers?) #f)
+    ((mysql-dialect? dialect) 'mysql)
+    (else 'ansi)))
+
 (define* (escape-sql-string s #:key escape-backslash?)
   "Escape string S for inclusion inside a single-quoted SQL literal by
 doubling each single quote (e.g. \"O'Brien\" becomes \"O''Brien\").  Non-string
@@ -96,9 +122,13 @@ escaped values."
         (string-replace-substring quoted "\\" "\\\\")
         quoted)))
 
-(define (quote-sql-identifier name)
-  "Render NAME (a symbol or string) as a safely delimited SQL identifier,
-wrapped in ANSI double quotes with any embedded double quote doubled.
+(define* (quote-sql-identifier name #:key (dialect 'ansi))
+  "Render NAME (a symbol or string) as a safely delimited SQL identifier.
+
+With the default `#:dialect 'ansi' the name is wrapped in double quotes with any
+embedded double quote doubled.  With `#:dialect 'mysql' (or `'mariadb') it is
+wrapped in backticks with embedded backticks doubled instead, because MySQL
+reads a double-quoted token as a string unless ANSI_QUOTES is enabled.
 
 Use this for column and table names that come from data.  `symbol->sql-column'
 only maps hyphens to underscores and does not defend against a name that
@@ -108,7 +138,9 @@ contains quotes or other punctuation.  A NUL character is rejected."
     (when (string-index str #\nul)
       (error "kracht sql: a SQL identifier cannot contain NUL characters"
              name))
-    (string-append "\"" (string-replace-substring str "\"" "\"\"") "\"")))
+    (if (mysql-dialect? dialect)
+        (string-append "`" (string-replace-substring str "`" "``") "`")
+        (string-append "\"" (string-replace-substring str "\"" "\"\"") "\""))))
 
 (define (pair->sql-assignment a)
   "Convert a key-value pair A into a SQL assignment clause string
@@ -193,22 +225,22 @@ INDEX and must return the placeholder string."
         ((dbi) "#?")
         (else (error "kracht sql: unknown parameter placeholder style" style)))))
 
-(define (sql-identifier x quote?)
+(define (sql-identifier x identifier-style)
   "Render X (a symbol or string) as a SQL identifier.  A symbol is first mapped
-through `symbol->sql-column'.  When QUOTE? is true the result is wrapped in
-double quotes by `quote-sql-identifier'."
+through `symbol->sql-column'.  IDENTIFIER-STYLE is #f to leave the name bare,
+or `ansi'/`mysql' to delimit it the way that dialect requires."
   (let ((name (if (symbol? x) (symbol->sql-column x)
                   (format #f "~a" x))))
-    (if quote?
-        (quote-sql-identifier name)
+    (if identifier-style
+        (quote-sql-identifier name #:dialect identifier-style)
         name)))
 
-(define (sql-identifier-list xs quote?)
+(define (sql-identifier-list xs identifier-style)
   "Render the list XS as a comma-separated list of SQL identifiers, keeping the
 star `*' unquoted."
   (string-join (map (lambda (x)
                       (if (eq? x '*) "*"
-                          (sql-identifier x quote?))) xs)
+                          (sql-identifier x identifier-style))) xs)
                ", "))
 
 ;; Comparison operators a caller may name in a condition.  Keeping this an
@@ -246,7 +278,7 @@ always-true -- predicate instead."
                   (cons (sql-placeholder i #:style style) placeholders)
                   (cons (car vs) params))))))
 
-(define (sql-condition->fragment condition style quote? index)
+(define (sql-condition->fragment condition style identifier-style index)
   "Compile one WHERE CONDITION, returning three values: the SQL text, its
 parameters and the next free parameter index.  See `sql-where-fragment' for the
 shape of a condition."
@@ -258,12 +290,12 @@ shape of a condition."
     ;; other helpers take: '(id . 7) is "id = 7".
     ((not (list? condition))
      (values (format #f "~a = ~a"
-                     (sql-identifier (car condition) quote?)
+                     (sql-identifier (car condition) identifier-style)
                      (sql-placeholder index #:style style))
              (list (cdr condition))
              (+ index 1)))
     (else
-     (let ((column (sql-identifier (car condition) quote?))
+     (let ((column (sql-identifier (car condition) identifier-style))
            (operands (cdr condition)))
        (case (length operands)
          ((0) (error "kracht sql: a condition needs a value" condition))
@@ -293,20 +325,22 @@ shape of a condition."
          (else (error "kracht sql: a condition must be (column value), (column operator value), (column 'in values), (column 'not-in values), (column 'is 'null) or (column 'is-not 'null)"
                       condition)))))))
 
-(define (sql-conditions->fragment conditions style quote? index)
+(define (sql-conditions->fragment conditions style identifier-style index)
   "Compile CONDITIONS into an ` AND '-joined fragment, returning three values:
 the text, its parameters and the next free parameter index."
   (let loop ((cs conditions) (i index) (parts '()) (params '()))
     (if (null? cs)
         (values (string-join (reverse parts) " AND ") (reverse params) i)
         (call-with-values (lambda ()
-                            (sql-condition->fragment (car cs) style quote? i))
+                            (sql-condition->fragment (car cs) style
+                                                     identifier-style i))
           (lambda (text ps next)
             (loop (cdr cs) next (cons text parts)
                   (append (reverse ps) params)))))))
 
 (define* (sql-where-fragment conditions
-                             #:key (style 'question) (quote-identifiers? #t) (start-index 1))
+                             #:key (style 'question) (quote-identifiers? #t)
+                                   (dialect 'ansi) (start-index 1))
   "Build a ` WHERE ...' fragment from CONDITIONS, for statements you compose
 yourself.  The result is a <sql-query> whose SQL is the empty string when
 CONDITIONS is empty.
@@ -325,46 +359,262 @@ A condition is one of these shapes:
 
 Conditions are joined with ` AND '.  A column may be a symbol (hyphens become
 underscores via `symbol->sql-column') or a string; either is quoted unless
-#:quote-identifiers? is #f.
+#:quote-identifiers? is #f, and quoted the way DIALECT requires.
 
 START-INDEX is the index of the first placeholder, for composing this fragment
 after another one that has already bound values."
   (call-with-values (lambda ()
-                      (sql-conditions->fragment conditions style
-                                                quote-identifiers? start-index))
+                      (sql-conditions->fragment
+                       conditions style
+                       (sql-identifier-style quote-identifiers? dialect)
+                       start-index))
     (lambda (text params _next-index)
       (make-sql-query (if (string-null? text) ""
                           (string-append " WHERE " text))
                       params))))
 
-(define* (sql-insert table row #:key (style 'question) (quote-identifiers? #t) returning)
+(define (rows->columns-and-values rows)
+  "Validate ROWS, a non-empty list of association lists, and return two values:
+the column list taken from the first row, and a list of value lists, each in
+that column order.
+
+Every row must carry exactly the same columns.  Rows are put into the first
+row's column order, so a caller need not keep them sorted; a row that is missing
+a column, or that carries an extra one, is an error rather than a silently
+shifted value."
+  (when (null? rows)
+    (error "kracht sql: at least one row is required"))
+  (let ((columns (map car (car rows))))
+    (when (null? columns)
+      (error "kracht sql: a row needs at least one column" (car rows)))
+    (values columns
+            (map (lambda (row)
+                   (when (not (= (length row) (length columns)))
+                     (error "kracht sql: every row must have the same columns"
+                            row columns))
+                   (map (lambda (column)
+                          (let ((pair (assoc column row)))
+                            (if pair
+                                (cdr pair)
+                                (error "kracht sql: a row is missing a column"
+                                       column row))))
+                        columns))
+                 rows))))
+
+(define (sql-values-clause value-rows column-count style start-index)
+  "Render the `(...), (...)' VALUES list for VALUE-ROWS, each as long as
+COLUMN-COUNT, returning two values: the text and the next free parameter index."
+  (let loop ((rs value-rows) (i start-index) (groups '()))
+    (if (null? rs)
+        (values (string-join (reverse groups) ", ") i)
+        (let inner ((n column-count) (j i) (placeholders '()))
+          (if (= n 0)
+              (loop (cdr rs) j
+                    (cons (string-append "("
+                                         (string-join (reverse placeholders) ", ")
+                                         ")")
+                          groups))
+              (inner (- n 1) (+ j 1)
+                     (cons (sql-placeholder j #:style style) placeholders)))))))
+
+(define* (sql-insert-many table rows
+                          #:key (style 'question) (quote-identifiers? #t)
+                                (dialect 'ansi) returning)
+  "Build an `INSERT INTO ... VALUES (...), (...)' query from ROWS, a non-empty
+list of association lists.  The column list comes from the first row; every
+other row must carry the same columns, and all the values are bound in that
+column order, row by row.
+
+Passing a single row is fine, and is exactly what `sql-insert' does.
+
+RETURNING, when given, is a list of columns -- or `(*)' for all columns -- to
+append as a `RETURNING' clause, as PostgreSQL and SQLite support."
+  (call-with-values (lambda () (rows->columns-and-values rows))
+    (lambda (columns value-rows)
+      (let ((identifier-style (sql-identifier-style quote-identifiers? dialect)))
+        (call-with-values
+            (lambda ()
+              (sql-values-clause value-rows (length columns) style 1))
+          (lambda (values-text _next-index)
+            (make-sql-query
+             (string-append "INSERT INTO "
+                            (sql-identifier table identifier-style)
+                            " ("
+                            (sql-identifier-list columns identifier-style)
+                            ") VALUES "
+                            values-text
+                            (if returning
+                                (string-append " RETURNING "
+                                               (sql-identifier-list returning
+                                                                    identifier-style))
+                                ""))
+             (apply append value-rows))))))))
+
+(define* (sql-insert table row
+                     #:key (style 'question) (quote-identifiers? #t)
+                           (dialect 'ansi) returning)
   "Build an `INSERT INTO ... VALUES ...' query from ROW, a non-empty
 association list of column/value pairs.  The values become bound parameters in
 the order they appear in ROW.
+
+Use `sql-insert-many' to insert several rows with a single statement.
 
 RETURNING, when given, is a list of columns -- or `(*)' for all columns -- to
 append as a `RETURNING' clause, as PostgreSQL and SQLite support."
   (when (null? row)
     (error "kracht sql: sql-insert needs at least one column" table))
-  (let* ((columns (map car row))
-         (row-values (map cdr row))
-         (placeholders (map (lambda (i)
-                              (sql-placeholder i #:style style))
-                            (iota (length row-values) 1))))
-    (make-sql-query
-     (string-append "INSERT INTO "
-                    (sql-identifier table quote-identifiers?)
-                    " ("
-                    (sql-identifier-list columns quote-identifiers?)
-                    ") VALUES ("
-                    (string-join placeholders ", ")
-                    ")"                        (if returning
-                        (string-append " RETURNING "
-                                       (sql-identifier-list returning quote-identifiers?))
-                        ""))
-     row-values)))
+  (sql-insert-many table (list row)
+                   #:style style
+                   #:quote-identifiers? quote-identifiers?
+                   #:dialect dialect
+                   #:returning returning))
 
-(define* (sql-update table row #:key where (style 'question) (quote-identifiers? #t))
+(define (columns-without columns removed)
+  "Return COLUMNS with every column in REMOVED dropped, comparing with `equal?'."
+  (filter (lambda (column)
+            (not (member column removed)))
+          columns))
+
+(define (columns-known? subset columns)
+  "Return #t when every column in SUBSET appears in COLUMNS."
+  (or (null? subset)
+      (and (member (car subset) columns)
+           (columns-known? (cdr subset) columns))))
+
+(define (sql-upsert-set-clause dialect update-columns identifier-style)
+  "Render the assignments of a conflict action, sourcing every value from the
+row being inserted: EXCLUDED for PostgreSQL and SQLite, VALUES() for MySQL.  No
+new parameters are introduced, so the caller's numbering is unaffected."
+  (let ((mysql? (mysql-dialect? dialect)))
+    (string-join
+     (map (lambda (column)
+            (let ((name (sql-identifier column identifier-style)))
+              (format #f "~a = ~a"
+                      name
+                      (if mysql?
+                          (format #f "VALUES(~a)" name)
+                          (format #f "EXCLUDED.~a" name)))))
+          update-columns)
+     ", ")))
+
+(define* (sql-upsert-many table rows
+                          #:key (style 'question) (quote-identifiers? #t)
+                                (dialect 'postgres) conflict-target
+                                (update 'auto) returning)
+  "Build an `INSERT ... ON CONFLICT ...' (PostgreSQL and SQLite) or
+`INSERT ... ON DUPLICATE KEY UPDATE ...' (MySQL and MariaDB) query from ROWS, a
+non-empty list of association lists -- see `sql-insert-many' for how ROWS is
+read.
+
+DIALECT is `postgres' (or `postgresql'), `sqlite', `mysql' (or `mariadb'), or
+`ansi', which is treated as the ON CONFLICT form.
+
+CONFLICT-TARGET is the column, or list of columns, the conflict is detected on.
+It is required for the ON CONFLICT form unless UPDATE is `nothing', because
+PostgreSQL and SQLite allow a bare `ON CONFLICT DO NOTHING'; it must be left out
+for MySQL, which takes the conflict key from a unique index instead.
+
+UPDATE says what happens on a conflict:
+
+  'auto      the default: overwrite every inserted column that is not part of
+             CONFLICT-TARGET.  MySQL has no conflict target, so there 'auto
+             covers the key columns too; name them in `(columns)' to leave the
+             key alone
+  'nothing   `ON CONFLICT DO NOTHING'; PostgreSQL and SQLite only, since MySQL
+             has no equivalent
+  (columns)  overwrite just these columns
+
+Every value comes from the row being inserted, through EXCLUDED or VALUES(), so
+the statement binds no parameters beyond the ones its INSERT already does.  A
+new value computed from the old one -- a counter, say -- is outside what this
+builder expresses; write that statement with `sql-parameterize'.
+
+RETURNING, when given, is a list of columns -- or `(*)' -- for PostgreSQL and
+SQLite.  MySQL has no `RETURNING' clause."
+  (unless (known-dialect? dialect)
+    (error "kracht sql: unknown upsert dialect" dialect))
+  (let ((mysql? (mysql-dialect? dialect)))
+    (when (and mysql? returning)
+      (error "kracht sql: MySQL has no RETURNING clause" dialect))
+    (when (and mysql? conflict-target)
+      (error "kracht sql: MySQL infers the conflict key, so #:conflict-target does not apply"
+             conflict-target))
+    (when (and mysql? (eq? update 'nothing))
+      (error "kracht sql: MySQL has no DO NOTHING; use sql-insert-many or name columns in #:update"
+             dialect))
+    (when (and (not mysql?) (not (eq? update 'nothing)) (not conflict-target))
+      (error "kracht sql: #:conflict-target is required for DO UPDATE" dialect))
+    (call-with-values (lambda () (rows->columns-and-values rows))
+      (lambda (columns value-rows)
+        (let* ((target (if conflict-target
+                           (if (list? conflict-target)
+                               conflict-target
+                               (list conflict-target))
+                           '()))
+               (update-columns (cond
+                                 ((eq? update 'nothing) '())
+                                 ((eq? update 'auto)
+                                  (columns-without columns target))
+                                 ((list? update) update)
+                                 (else (error "kracht sql: #:update must be 'auto, 'nothing or a list of columns"
+                                              update))))
+               (identifier-style (sql-identifier-style quote-identifiers? dialect)))
+          (when (not (columns-known? target columns))
+            (error "kracht sql: every #:conflict-target column must appear in the rows"
+                   target columns))
+          (when (not (columns-known? update-columns columns))
+            (error "kracht sql: every #:update column must appear in the rows"
+                   update-columns columns))
+          (when (and (not (eq? update 'nothing)) (null? update-columns))
+            (error "kracht sql: nothing is left to update; pass #:update 'nothing"
+                   update))
+          (call-with-values
+              (lambda ()
+                (sql-values-clause value-rows (length columns) style 1))
+            (lambda (values-text _next-index)
+              (make-sql-query
+               (string-append
+                "INSERT INTO " (sql-identifier table identifier-style)
+                " (" (sql-identifier-list columns identifier-style) ") VALUES "
+                values-text
+                (if mysql?
+                    (string-append " ON DUPLICATE KEY UPDATE "
+                                   (sql-upsert-set-clause dialect update-columns
+                                                          identifier-style))
+                    (string-append
+                     " ON CONFLICT "
+                     (if (null? target) ""
+                         (string-append "("
+                                        (sql-identifier-list target identifier-style)
+                                        ") "))
+                     (if (eq? update 'nothing)
+                         "DO NOTHING"
+                         (string-append "DO UPDATE SET "
+                                        (sql-upsert-set-clause dialect update-columns
+                                                               identifier-style)))))
+                (if returning
+                    (string-append " RETURNING "
+                                   (sql-identifier-list returning identifier-style))
+                    ""))
+               (apply append value-rows)))))))))
+
+(define* (sql-upsert table row
+                     #:key (style 'question) (quote-identifiers? #t)
+                           (dialect 'postgres) conflict-target
+                           (update 'auto) returning)
+  "Build an upsert for a single ROW.  See `sql-upsert-many', which takes the
+same arguments but a list of rows."
+  (sql-upsert-many table (list row)
+                   #:style style
+                   #:quote-identifiers? quote-identifiers?
+                   #:dialect dialect
+                   #:conflict-target conflict-target
+                   #:update update
+                   #:returning returning))
+
+(define* (sql-update table row
+                     #:key where (style 'question) (quote-identifiers? #t)
+                           (dialect 'ansi))
   "Build an `UPDATE ... SET ...' query from ROW, a non-empty association list of
 column/value pairs; the values become bound parameters in ROW order.
 
@@ -373,42 +623,46 @@ WHERE is a list of conditions (see `sql-where-fragment') that becomes the
 you want, but it is a good way to lose data, so check before you mean it."
   (when (null? row)
     (error "kracht sql: sql-update needs at least one column" table))
-  (let loop ((pairs row) (i 1) (assignments '()) (params '()))
-    (if (null? pairs)
-        (call-with-values (lambda ()
-                            (sql-conditions->fragment (or where '()) style
-                                                      quote-identifiers? i))
-          (lambda (text where-params _next-index)
-            (make-sql-query
-             (string-append "UPDATE "
-                            (sql-identifier table quote-identifiers?)
-                            " SET "
-                            (string-join (reverse assignments) ", ")
-                            (if (string-null? text) ""
-                                (string-append " WHERE " text)))
-             (append (reverse params) where-params))))
-        (loop (cdr pairs) (+ i 1)
-              (cons (format #f "~a = ~a"
-                            (sql-identifier (caar pairs) quote-identifiers?)
-                            (sql-placeholder i #:style style))
-                    assignments)
-              (cons (cdar pairs) params)))))
+  (let ((identifier-style (sql-identifier-style quote-identifiers? dialect)))
+    (let loop ((pairs row) (i 1) (assignments '()) (params '()))
+      (if (null? pairs)
+          (call-with-values (lambda ()
+                              (sql-conditions->fragment (or where '()) style
+                                                        identifier-style i))
+            (lambda (text where-params _next-index)
+              (make-sql-query
+               (string-append "UPDATE "
+                              (sql-identifier table identifier-style)
+                              " SET "
+                              (string-join (reverse assignments) ", ")
+                              (if (string-null? text) ""
+                                  (string-append " WHERE " text)))
+               (append (reverse params) where-params))))
+          (loop (cdr pairs) (+ i 1)
+                (cons (format #f "~a = ~a"
+                              (sql-identifier (caar pairs) identifier-style)
+                              (sql-placeholder i #:style style))
+                      assignments)
+                (cons (cdar pairs) params))))))
 
-(define* (sql-delete table #:key where (style 'question) (quote-identifiers? #t))
+(define* (sql-delete table
+                     #:key where (style 'question) (quote-identifiers? #t)
+                           (dialect 'ansi))
   "Build a `DELETE FROM ...' query.  WHERE is a list of conditions (see
 `sql-where-fragment') that becomes the `WHERE' clause; with no conditions the
 query deletes every row."
-  (call-with-values (lambda ()
-                      (sql-conditions->fragment (or where '()) style
-                                                quote-identifiers? 1))
-    (lambda (text params _next-index)
-      (make-sql-query
-       (string-append "DELETE FROM " (sql-identifier table quote-identifiers?)
-                      (if (string-null? text) ""
-                          (string-append " WHERE " text)))
-       params))))
+  (let ((identifier-style (sql-identifier-style quote-identifiers? dialect)))
+    (call-with-values (lambda ()
+                        (sql-conditions->fragment (or where '()) style
+                                                  identifier-style 1))
+      (lambda (text params _next-index)
+        (make-sql-query
+         (string-append "DELETE FROM " (sql-identifier table identifier-style)
+                        (if (string-null? text) ""
+                            (string-append " WHERE " text)))
+         params)))))
 
-(define (sql-order-by-clause order-by quote?)
+(define (sql-order-by-clause order-by identifier-style)
   "Render ORDER-BY, a list of `(column [direction])' pairs, as an `ORDER BY'
 clause.  DIRECTION is the symbol `asc' or `desc'."
   (if (null? order-by)
@@ -417,7 +671,7 @@ clause.  DIRECTION is the symbol `asc' or `desc'."
        " ORDER BY "
        (string-join
         (map (lambda (clause)
-               (let ((column (sql-identifier (car clause) quote?))
+               (let ((column (sql-identifier (car clause) identifier-style))
                      (direction (and (pair? (cdr clause)) (cadr clause))))
                  (case direction
                    ((#f) column)
@@ -429,40 +683,41 @@ clause.  DIRECTION is the symbol `asc' or `desc'."
         ", "))))
 
 (define* (sql-select table #:key (columns '(*)) where order-by limit offset
-                     (style 'question) (quote-identifiers? #t))
+                     (style 'question) (quote-identifiers? #t) (dialect 'ansi))
   "Build a `SELECT ...' query.  COLUMNS is a list of columns, defaulting to
 `(*)' for all of them.  WHERE is a list of conditions (see
 `sql-where-fragment').  ORDER-BY is a list of `(column [direction])' pairs.
 
 LIMIT and OFFSET, when given, are bound as parameters rather than interpolated,
 so they cannot carry SQL into the statement."
-  (call-with-values (lambda ()
-                      (sql-conditions->fragment (or where '()) style
-                                                quote-identifiers? 1))
-    (lambda (text params index)
-      (let* ((limit-index index)
-             (offset-index (+ index (if limit 1 0)))
-             (tail (string-append
-                    (sql-order-by-clause (or order-by '()) quote-identifiers?)
-                    (if limit
-                        (string-append " LIMIT "
-                                       (sql-placeholder limit-index #:style style))
-                        "")
-                    (if offset
-                        (string-append " OFFSET "
-                                       (sql-placeholder offset-index #:style style))
-                        ""))))
-        (make-sql-query
-         (string-append "SELECT "
-                        (sql-identifier-list columns quote-identifiers?)
-                        " FROM "
-                        (sql-identifier table quote-identifiers?)
-                        (if (string-null? text) ""
-                            (string-append " WHERE " text))
-                        tail)
-         (append params
-                 (if limit (list limit) '())
-                 (if offset (list offset) '())))))))
+  (let ((identifier-style (sql-identifier-style quote-identifiers? dialect)))
+    (call-with-values (lambda ()
+                        (sql-conditions->fragment (or where '()) style
+                                                  identifier-style 1))
+      (lambda (text params index)
+        (let* ((limit-index index)
+               (offset-index (+ index (if limit 1 0)))
+               (tail (string-append
+                      (sql-order-by-clause (or order-by '()) identifier-style)
+                      (if limit
+                          (string-append " LIMIT "
+                                         (sql-placeholder limit-index #:style style))
+                          "")
+                      (if offset
+                          (string-append " OFFSET "
+                                         (sql-placeholder offset-index #:style style))
+                          ""))))
+          (make-sql-query
+           (string-append "SELECT "
+                          (sql-identifier-list columns identifier-style)
+                          " FROM "
+                          (sql-identifier table identifier-style)
+                          (if (string-null? text) ""
+                              (string-append " WHERE " text))
+                          tail)
+           (append params
+                   (if limit (list limit) '())
+                   (if offset (list offset) '()))))))))
 
 (define* (sql-parameterize template bindings #:key (style 'question))
   "Return a <sql-query> that binds BINDINGS into TEMPLATE, replacing each `?'

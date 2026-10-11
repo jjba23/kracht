@@ -73,7 +73,19 @@
                              (list "SELECT * FROM \"t\" WHERE \"id\" = ?" '(1))
                              #:got (let ((q (sql-select 't #:where '((id . 1)))))
                                      (list (sql-query-sql q)
-                                           (sql-query-params q)))))
+                                           (sql-query-params q))))
+               (assert-equal #:name "sql-insert-many groups one VALUES per row"
+                             #:expect
+                             "INSERT INTO \"t\" (\"a\") VALUES (?), (?)"
+                             #:got (sql-query-sql
+                                    (sql-insert-many 't
+                                                     (list '((a . 1)) '((a . 2))))))
+               (assert-equal #:name "sql-upsert renders ON CONFLICT"
+                             #:expect
+                             "INSERT INTO \"t\" (\"id\", \"a\") VALUES (?, ?) ON CONFLICT (\"id\") DO UPDATE SET \"a\" = EXCLUDED.\"a\""
+                             #:got (sql-query-sql
+                                    (sql-upsert 't '((id . 1) (a . 2))
+                                                #:conflict-target 'id))))
 
          (test "(kracht web) works standalone"
                (assert-equal #:name "html-escape"
@@ -132,6 +144,14 @@
                                        (module-exports '(kracht sql)))
                                  #t)
                             #:name "(kracht sql) exports sql-select")
+               (assert-true (and (memq 'sql-upsert-many
+                                       (module-exports '(kracht sql)))
+                                 #t)
+                            #:name "(kracht sql) exports sql-upsert-many")
+               (assert-true (and (memq 'sql-insert-many
+                                       (module-exports '(kracht prelude)))
+                                 #t)
+                            #:name "(kracht prelude) re-exports sql-insert-many")
                (assert-true (and (memq 'sql-parameterize
                                        (module-exports '(kracht sql)))
                                  #t)

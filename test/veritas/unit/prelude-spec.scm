@@ -783,6 +783,239 @@
                                                               '((name . "x"))
                                                               #:returning '(*)))))
 
+         (test "multi-row INSERT"
+               (let ((q (sql-insert-many 'users
+                                         (list '((name . "A") (age . 1))
+                                               '((name . "B") (age . 2))))))
+                 (assert-equal #:name "one VALUES group per row"
+                               #:expect
+                               "INSERT INTO \"users\" (\"name\", \"age\") VALUES (?, ?), (?, ?)"
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "parameters run row by row"
+                               #:expect '("A" 1 "B" 2)
+                               #:got (sql-query-params q)))
+               (assert-equal #:name "numbered placeholders keep counting across rows"
+                             #:expect
+                             "INSERT INTO \"users\" (\"name\", \"age\") VALUES ($1, $2), ($3, $4)"
+                             #:got (sql-query-sql
+                                    (sql-insert-many
+                                     'users
+                                     (list '((name . "A") (age . 1))
+                                           '((name . "B") (age . 2)))
+                                     #:style 'numbered)))
+               (assert-equal #:name "rows are put into the first row's column order"
+                             #:expect '("A" 1 "B" 2)
+                             #:got (sql-query-params
+                                    (sql-insert-many
+                                     'users
+                                     (list '((name . "A") (age . 1))
+                                           '((age . 2) (name . "B"))))))
+               (assert-equal #:name "one row is a legal batch"
+                             #:expect (sql-query-sql (sql-insert 'users
+                                                                '((name . "x"))))
+                             #:got (sql-query-sql (sql-insert-many
+                                                   'users
+                                                   (list '((name . "x")))))))
+
+         (test "multi-row INSERT refuses rows that do not line up"
+               (assert-equal #:name "a row with different columns"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-insert-many 't
+                                                             (list '((a . 1))
+                                                                   '((b . 2)))))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "a row carrying an extra column"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-insert-many
+                                             't
+                                             (list '((a . 1))
+                                                   '((a . 2) (b . 3)))))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an empty batch"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda () (sql-insert-many 't '()))
+                                          (lambda args 'rejected))))
+
+         (test "upsert: ON CONFLICT for PostgreSQL and SQLite"
+               (let ((q (sql-upsert 'users '((id . 1) (name . "A") (age . 2))
+                                    #:conflict-target 'id)))
+                 (assert-equal #:name "the key, then every other column"
+                               #:expect
+                               "INSERT INTO \"users\" (\"id\", \"name\", \"age\") VALUES (?, ?, ?) ON CONFLICT (\"id\") DO UPDATE SET \"name\" = EXCLUDED.\"name\", \"age\" = EXCLUDED.\"age\""
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "the upsert binds no parameter of its own"
+                               #:expect '(1 "A" 2)
+                               #:got (sql-query-params q)))
+               (assert-equal #:name "an explicit column list narrows the update"
+                             #:expect
+                             "INSERT INTO \"users\" (\"id\", \"name\", \"age\") VALUES (?, ?, ?) ON CONFLICT (\"id\") DO UPDATE SET \"name\" = EXCLUDED.\"name\""
+                             #:got (sql-query-sql
+                                    (sql-upsert 'users
+                                                '((id . 1) (name . "A") (age . 2))
+                                                #:conflict-target '(id)
+                                                #:update '(name))))
+               (assert-equal #:name "DO NOTHING keeps the conflict target"
+                             #:expect
+                             "INSERT INTO \"users\" (\"id\", \"name\") VALUES (?, ?) ON CONFLICT (\"id\") DO NOTHING"
+                             #:got (sql-query-sql
+                                    (sql-upsert 'users '((id . 1) (name . "A"))
+                                                #:conflict-target 'id
+                                                #:update 'nothing)))
+               (assert-equal #:name "and may omit it"
+                             #:expect
+                             "INSERT INTO \"users\" (\"id\", \"name\") VALUES (?, ?) ON CONFLICT DO NOTHING"
+                             #:got (sql-query-sql
+                                    (sql-upsert 'users '((id . 1) (name . "A"))
+                                                #:update 'nothing)))
+               (assert-equal #:name "sqlite renders the same ON CONFLICT form"
+                             #:expect
+                             (sql-query-sql (sql-upsert 'users '((id . 1) (name . "A"))
+                                                        #:conflict-target 'id
+                                                        #:dialect 'postgres))
+                             #:got (sql-query-sql (sql-upsert 'users '((id . 1) (name . "A"))
+                                                             #:conflict-target 'id
+                                                             #:dialect 'sqlite))))
+
+         (test "upsert: ON DUPLICATE KEY UPDATE for MySQL"
+               (assert-equal #:name "MySQL quotes its identifiers and sources VALUES()"
+                             #:expect
+                             "INSERT INTO `users` (`id`, `name`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `name` = VALUES(`name`)"
+                             #:got (sql-query-sql (sql-upsert 'users
+                                                             '((id . 1) (name . "A"))
+                                                             #:dialect 'mysql)))
+               (assert-equal #:name "an explicit column list keeps the key out of it"
+                             #:expect
+                             "INSERT INTO `users` (`id`, `name`, `age`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`)"
+                             #:got (sql-query-sql
+                                    (sql-upsert 'users
+                                                '((id . 1) (name . "A") (age . 2))
+                                                #:dialect 'mariadb
+                                                #:update '(name)))))
+
+         (test "upsert: multi-row batches"
+               (let ((q (sql-upsert-many
+                         'users
+                         (list '((id . 1) (name . "A"))
+                               '((id . 2) (name . "B")))
+                         #:conflict-target 'id
+                         #:style 'numbered)))
+                 (assert-equal #:name "one statement, numbered placeholders"
+                               #:expect
+                               "INSERT INTO \"users\" (\"id\", \"name\") VALUES ($1, $2), ($3, $4) ON CONFLICT (\"id\") DO UPDATE SET \"name\" = EXCLUDED.\"name\""
+                               #:got (sql-query-sql q))
+                 (assert-equal #:name "parameters run row by row"
+                               #:expect '(1 "A" 2 "B")
+                               #:got (sql-query-params q))))
+
+         (test "upsert: misuse is reported"
+               (assert-equal #:name "ON CONFLICT DO UPDATE needs a target"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1) (name . "A"))))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "MySQL has no conflict target to give"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1))
+                                                        #:dialect 'mysql
+                                                        #:conflict-target 'id))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "MySQL has no DO NOTHING"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1))
+                                                        #:dialect 'mysql
+                                                        #:update 'nothing))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "MySQL has no RETURNING"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1))
+                                                        #:dialect 'mysql
+                                                        #:returning '(id)))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an unknown dialect"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1)) #:dialect 'oracle))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "nothing left to update"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1))
+                                                        #:conflict-target 'id))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "a column that is not in the rows"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1) (name . "A"))
+                                                        #:conflict-target 'id
+                                                        #:update '(nope)))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "a conflict target that is not in the rows"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1) (name . "A"))
+                                                        #:conflict-target 'nope))
+                                          (lambda args 'rejected)))
+               (assert-equal #:name "an update that is neither 'auto, 'nothing nor a list"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda ()
+                                            (sql-upsert 't '((id . 1) (name . "A"))
+                                                        #:conflict-target 'id
+                                                        #:update 'sausage))
+                                          (lambda args 'rejected))))
+
+         (test "#:dialect decides how identifiers are delimited"
+               (assert-equal #:name "MySQL uses backticks, not double quotes"
+                             #:expect
+                             "SELECT `id`, `name` FROM `users` WHERE `id` = ? LIMIT ?"
+                             #:got (sql-query-sql (sql-select 'users
+                                                             #:columns '(id name)
+                                                             #:where '((id . 1))
+                                                             #:limit 5
+                                                             #:dialect 'mysql)))
+               (assert-equal #:name "and so do the other builders"
+                             #:expect
+                             '("UPDATE `users` SET `name` = ? WHERE `id` = ?"
+                               "DELETE FROM `users` WHERE `id` = ?")
+                             #:got (list (sql-query-sql
+                                          (sql-update 'users '((name . "A"))
+                                                      #:where '((id . 1))
+                                                      #:dialect 'mysql))
+                                         (sql-query-sql
+                                          (sql-delete 'users #:where '((id . 1))
+                                                      #:dialect 'mysql))))
+               (assert-equal #:name "the default is still ANSI quoting"
+                             #:expect
+                             "SELECT \"id\" FROM \"users\" WHERE \"id\" = ?"
+                             #:got (sql-query-sql (sql-select 'users
+                                                             #:columns '(id)
+                                                             #:where '((id . 1)))))
+               (assert-equal #:name "quote-sql-identifier switches delimiter on request"
+                             #:expect '("\"id\"" "`id`")
+                             #:got (list (quote-sql-identifier 'id)
+                                         (quote-sql-identifier 'id #:dialect 'mysql)))
+               (assert-equal #:name "an unknown dialect is rejected"
+                             #:expect 'rejected
+                             #:got (catch #t
+                                          (lambda () (sql-select 't #:dialect 'oracle))
+                                          (lambda args 'rejected))))
+
          (test "placeholder dialects"
                (let ((row '((name . "x"))))
                  (assert-equal #:name "numbered (PostgreSQL)"
