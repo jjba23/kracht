@@ -22,6 +22,29 @@ You can find the technical Guile Scheme API documentation  for Kracht here, wher
 
 https://jointhefreeworld.org/api-docs/kracht/API.html
 
+** What Kracht writes, and what it passes through
+
+Kracht is two things at once, and it helps to know which is which:
+
+- *Functionalities Kracht implements itself* -- the code in ~src/kracht/~:
+  string helpers, list and association-list helpers, the SQL builders, HTML
+  escaping for each context, the HTML entity tables, and the file and port
+  helpers.  These are the parts whose behaviour is Kracht's own, and the
+  /Behavior notes/ further down describe the places where that behaviour was
+  deliberately tightened.
+- *Standard-library procedures Kracht re-exports* -- SRFI-1, SRFI-2, SRFI-8,
+  SRFI-11, SRFI-19, SRFI-26, SRFI-43 and SRFI-111, plus ~(ice-9 match)~ and
+  ~(ice-9 pretty-print)~.  These are Guile's own procedures, passed through
+  unchanged so that a single ~(use-modules (kracht prelude))~ is usually
+  enough.  Nothing in this group is reimplemented.
+
+A few modules are a thin layer over a standard one rather than new code, and
+say so where it matters: ~(kracht web)~ re-exports ~uri-encode~ and
+~uri-decode~ from ~(web uri)~ instead of shipping a second URL encoder, and
+~(kracht strings)~ re-exports the UTF-8 conversion procedures.  When Kracht
+delegates like that, the delegation is intentional -- two subtly different
+implementations of the same encoder is how bugs get in.
+
 ** Modules
 
 Kracht is organised into small, focused modules.  ~(kracht prelude)~ is the
@@ -47,6 +70,11 @@ what you need:
   ~html-escape-js-string~ and ~html-escape-css-value~,
   ~alist-from-url-encoded-body~, plus re-exports of ~uri-decode~ and
   ~uri-encode~.
+- ~(kracht html-entities)~ — the entity tables themselves, generated from the
+  standard's own lists: ~html-named-entities~, ~html-escape-entities~,
+  ~html-entity-ref~ and ~html-char-ref~.  ~(kracht web)~ is built on this
+  module, and you can use it directly when you need to look a reference up
+  without escaping a whole document.
 - ~(kracht io)~ — ~read-file-string~, ~write-file-string~,
   ~build-asset-library~, ~syscall~, ~get-short-commit-sha~, ~getenv-or~ and
   the port re-exports.
@@ -146,6 +174,45 @@ What each encoder guarantees:
 One rule that covers all of them: encode for the context the value is going
 into, and encode it last.  Escaping first and concatenating afterwards undoes
 the escaping.
+
+** The entity tables
+
+~html-escape~ and ~html-unescape~ are driven by two tables in
+~(kracht html-entities)~.  That module is data, and it is generated rather
+than written by hand: ~tools/generate-html-entities.py~ writes it out from the
+tables Python bundles (the WHATWG list the HTML standard publishes as
+~entities.json~, and the HTML4 set), so a couple of thousand references are
+not transcribed by eye.  Re-run the script rather than editing the file.
+
+- ~html-named-entities~ — the *2125* named character references HTML5 defines
+  that end in ~;~, including the 93 that stand for two code points rather than
+  one (~&NotEqualTilde;~ is ~U+2242 U+0338~).  This is what ~html-unescape~
+  reads.
+- ~html-escape-entities~ — the *251* characters ~html-escape~ is willing to
+  write as a named entity: the HTML4 set (Latin-1, plus the common symbols
+  from currency signs to Greek letters, arrows, and the mathematical and
+  card-suit characters) together with the five characters HTML is sensitive
+  to and ~&apos;~.  This is what ~html-char-ref~ reads.
+- ~html-entity-ref~ and ~html-char-ref~ are those two lookups, exposed:
+  ~html-entity-ref~ gives the characters a reference stands for,
+  ~html-char-ref~ gives the reference to write for a character, and each
+  returns ~#f~ when there is nothing to return.
+
+Decoding is deliberately broader than encoding.  ~html-unescape~ understands
+every reference -- the HTML5-only spellings such as ~&sol;~, ~&ast;~ and
+~&dollar;~ that ~html-escape~ would never write, and the legacy uppercase
+forms ~&AMP;~, ~&LT;~, ~&GT;~ and ~&QUOT;~ -- while ~html-escape~ writes only
+the names that are safe in every context and unambiguous.
+
+That last word carries weight.  Every reference the encoder writes decodes
+back to exactly the character it came from, and the generator checks it: a
+character is only kept in ~html-escape-entities~ if the reference it would be
+written as decodes back to that same character.  Two HTML4 names fail that
+test, so Kracht does not write them: ~&lang;~ and ~&rang;~ name the CJK angle
+brackets ~U+2329~ and ~U+232A~ in HTML4, but HTML5 reads the very same
+references as the mathematical angle brackets ~U+27E8~ and ~U+27E9~.  Writing
+~&lang;~ for ~U+2329~ would therefore silently change the character on the way
+back in, so ~U+2329~ and ~U+232A~ pass through as themselves.
 
 
 * Binding Values Instead of Interpolating Them

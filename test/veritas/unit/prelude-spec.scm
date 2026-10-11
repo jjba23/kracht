@@ -1348,6 +1348,103 @@ b"))
                                          (html-escape-js-string "")
                                          (html-escape-css-value ""))))))
 
+(define flatten-list-suite
+  (suite "flatten-list"
+         (test "the shapes it has to handle"
+               (assert-equal #:name "an empty list"
+                             #:expect '()
+                             #:got (flatten-list '()))
+               (assert-equal #:name "a list with nothing to flatten"
+                             #:expect '(1 2 3)
+                             #:got (flatten-list '(1 2 3)))
+               (assert-equal #:name "one level of nesting"
+                             #:expect '(1 2 3 4)
+                             #:got (flatten-list '(1 (2 3) 4)))
+               (assert-equal #:name "deep nesting"
+                             #:expect '(1 2 3 4 5)
+                             #:got (flatten-list '(1 (2 (3 (4 (5)))))))
+               (assert-equal #:name "nesting on both sides of a spine"
+                             #:expect '(1 2 3 4 5 6)
+                             #:got (flatten-list '((1 2) (3 (4)) ((5) 6))))
+               (assert-equal #:name "empty lists disappear"
+                             #:expect '(1 2)
+                             #:got (flatten-list '(1 () (() ()) 2)))
+               (assert-equal #:name "an empty list of empty lists"
+                             #:expect '()
+                             #:got (flatten-list '(() (() ()))))
+               (assert-equal #:name "a bare atom becomes a one-element list"
+                             #:expect '(a)
+                             #:got (flatten-list 'a)))
+
+         (test "what counts as a leaf"
+               (assert-equal #:name "mixed atoms keep their order and identity"
+                             #:expect (list 1 "two" #t (integer->char 120)
+                                            'three 4)
+                             #:got (flatten-list (list 1 (list "two")
+                                                        #t (integer->char 120)
+                                                        (list 'three 4))))
+               (assert-equal #:name "an improper tail is flattened, not kept whole"
+                             ;; The spine and the tail are both flattened, so a
+                             ;; dotted pair contributes its two halves.
+                             #:expect '(a b c)
+                             #:got (flatten-list '(a (b . c))))
+               (assert-equal #:name "and a dotted pair on its own likewise"
+                             #:expect '(a b)
+                             #:got (flatten-list '((a . b))))
+               (assert-equal #:name "a string is a leaf, not a list of characters"
+                             #:expect '("abc")
+                             #:got (flatten-list "abc"))
+               (assert-equal #:name "a vector is a leaf too"
+                             #:expect '(1 #(2 3) 4)
+                             #:got (flatten-list (list 1 #(2 3) 4)))
+               (assert-equal #:name "numbers and booleans are not list-like"
+                             #:expect '(0 #f #t 1)
+                             #:got (flatten-list '(0 (#f) #t (1)))))
+
+         (test "it does not disturb its input"
+               (let ((input '(1 (2 3) (4 (5)))))
+                 (flatten-list input)
+                 (assert-equal #:name "the argument is untouched"
+                               #:expect '(1 (2 3) (4 (5)))
+                               #:got input))
+               (assert-equal #:name "flattening twice changes nothing"
+                             #:expect '(1 2 3 4 5)
+                             #:got (flatten-list (flatten-list '(1 (2 3) (4 (5)))))))
+
+         (test "it survives the deeply nested input it is used on"
+               ;; The test runner flattens the directory tree it walks, so a
+               ;; deeply nested structure must not blow the stack.
+               (assert-equal #:name "a hundred levels deep"
+                             #:expect '(deep)
+                             #:got (let loop ((n 100) (x '(deep)))
+                                     (if (= n 0) (flatten-list x)
+                                         (loop (- n 1) (list x))))))
+
+         (test "it scales the way its callers need it to"
+               ;; The test runner flattens the directory tree it walks, so the
+               ;; structure it hands over can be both deep and wide.
+               (assert-equal #:name "a thousand levels deep"
+                             #:expect '(deep)
+                             #:got (let loop ((n 1000) (x '(deep)))
+                                     (if (= n 0) (flatten-list x)
+                                         (loop (- n 1) (list x)))))
+               (assert-equal #:name "a thousand sibling lists"
+                             #:expect (let loop ((i 999) (acc '()))
+                                        (if (< i 0) acc (loop (- i 1) (cons i acc))))
+                             #:got (flatten-list
+                                    (map (lambda (i) (list i))
+                                         (let loop ((i 999) (acc '()))
+                                           (if (< i 0) acc
+                                               (loop (- i 1) (cons i acc)))))))
+               (assert-equal #:name "depth-first, left to right"
+                             #:expect '(1 2 3 4 5 6 7 8)
+                             #:got (flatten-list '(1 (2 (3 4) 5) ((6) (7 (8)))))))
+
+         (test "length is preserved for proper lists"
+               (assert-equal #:name "a flattened tree has the same element count"
+                             #:expect 6
+                             #:got (length (flatten-list '((1 2) ((3 (4 (5))) 6))))))))
+
 (define (spec)
   (veritas-run prelude-suite another-suite robustness-suite reexports-suite
-               sql-builder-suite escaping-context-suite))
+               sql-builder-suite escaping-context-suite flatten-list-suite))

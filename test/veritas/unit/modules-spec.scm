@@ -21,6 +21,7 @@
   #:use-module (kracht lists)
   #:use-module (kracht sql)
   #:use-module (kracht web)
+  #:use-module (kracht html-entities)
   #:use-module (kracht io)
   #:export (spec))
 
@@ -112,6 +113,26 @@
                              #:got (alist-from-url-encoded-body
                                     (string->utf8 "a=1"))))
 
+         (test "(kracht html-entities) works standalone"
+               (assert-equal #:name "html-entity-ref reads a reference"
+                             #:expect "&"
+                             #:got (html-entity-ref "&amp;"))
+               (assert-equal #:name "including one the HTML4 set has no name for"
+                             #:expect (string (integer->char 8230))
+                             #:got (html-entity-ref "&hellip;"))
+               (assert-equal #:name "an unknown reference is #f"
+                             #:expect #f
+                             #:got (html-entity-ref "&nope;"))
+               (assert-equal #:name "html-char-ref writes a reference"
+                             #:expect "&lt;"
+                             #:got (html-char-ref #\<))
+               (assert-equal #:name "the escape table is the HTML4 set"
+                             #:expect 251
+                             #:got (length html-escape-entities))
+               (assert-equal #:name "and the decode table is the HTML5 one"
+                             #:expect 2125
+                             #:got (length html-named-entities)))
+
          (test "(kracht io) works standalone"
                (assert-true (string? (syscall "echo hi"))
                             #:name "syscall returns a string")
@@ -166,7 +187,18 @@
                             #:name "(kracht web) exports html-escape-context")
                (assert-false (memq 'html-escape-js-string
                                    (module-exports '(kracht sql)))
-                             #:name "(kracht sql) does not export the web encoders"))))
+                             #:name "(kracht sql) does not export the web encoders")
+               (assert-true (and (memq 'html-entity-ref
+                                       (module-exports '(kracht prelude)))
+                                 #t)
+                            #:name "(kracht prelude) re-exports html-entity-ref")
+               (assert-true (and (memq 'html-char-ref
+                                       (module-exports '(kracht html-entities)))
+                                 #t)
+                            #:name "(kracht html-entities) exports html-char-ref")
+               (assert-false (memq 'html-escape
+                                   (module-exports '(kracht html-entities)))
+                             #:name "(kracht html-entities) is tables only, not the escapers"))))
 
 (define (spec)
   (veritas-run modules-suite))

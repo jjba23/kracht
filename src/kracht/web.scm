@@ -20,6 +20,7 @@
   #:use-module (ice-9 iconv)
   #:use-module (srfi srfi-1)
   #:use-module (web uri)
+  #:use-module (kracht html-entities)
   #:re-export (uri-decode uri-encode)
   #:export (html-escape html-unescape
                         html-escape-context
@@ -32,93 +33,17 @@
 ;;; HTML escaping
 ;;;
 
-;; Characters `html-escape' turns into named entities.  The first five are the
-;; characters HTML requires escaping in text and attribute contexts; the rest
-;; are the accented Latin letters kracht has always emitted as entities.
-(define html-escape-alist
-  '(("&" "&amp;")
-    ("<" "&lt;")
-    (">" "&gt;")
-    ("'" "&apos;")
-    ("\"" "&quot;")
-    ("á" "&aacute;")
-    ("à" "&agrave;")
-    ("Á" "&Aacute;")
-    ("À" "&Agrave;")
-    ("é" "&eacute;")
-    ("è" "&egrave;")
-    ("É" "&Eacute;")
-    ("È" "&Egrave;")
-    ("í" "&iacute;")
-    ("ì" "&igrave;")
-    ("Í" "&Iacute;")
-    ("Ì" "&Igrave;")
-    ("ó" "&oacute;")
-    ("ò" "&ograve;")
-    ("Ó" "&Oacute;")
-    ("Ò" "&Ograve;")
-    ("ú" "&uacute;")
-    ("ù" "&ugrave;")
-    ("Ú" "&Uacute;")
-    ("Ù" "&Ugrave;")
-    ("ç" "&ccedil;")
-    ("Ç" "&Ccedil;")
-    ("ñ" "&ntilde;")
-    ("Ñ" "&Ntilde;")
-    ("å" "&aring;")
-    ("æ" "&aelig;")
-    ("ë" "&euml;")
-    ("ï" "&iuml;")
-    ("ô" "&ocirc;")
-    ("ö" "&ouml;")
-    ("ø" "&oslash;")
-    ("û" "&ucirc;")
-    ("ü" "&uuml;")
-    ("ä" "&auml;")
-    ("â" "&acirc;")
-    ("ß" "&szlig;")
-    ("Ü" "&Uuml;")
-    ("Ö" "&Ouml;")
-    ("Ë" "&Euml;")
-    ("Ä" "&Auml;")
-    ("Ï" "&Iuml;")
-    ("ã" "&atilde;")
-    ("Ã" "&Atilde;")
-    ("õ" "&otilde;")
-    ("Õ" "&Otilde;")))
-
-;; Character-keyed lookup tables derived from `html-escape-alist`.  Building
-;; them once avoids re-scanning the whole alist for every character.
-(define html-escape-chars
-  (map (lambda (entity)
-         (cons (string-ref (car entity) 0)
-               (cadr entity))) html-escape-alist))
-
-;; Entities `html-unescape' understands but `html-escape' no longer produces.
-;; `&sol;', `&ast;', `&dollar;' and `&percnt;' are not HTML-significant and
-;; escaping them corrupted plain text, so they are decode-only now; the
-;; uppercase forms are legacy HTML spellings of the basic five.
-(define html-unescape-only-alist
-  '(("/" "&sol;")
-    ("*" "&ast;")
-    ("$" "&dollar;")
-    ("%" "&percnt;")
-    ("&" "&AMP;")
-    ("<" "&LT;")
-    (">" "&GT;")
-    ("\"" "&QUOT;")))
-
-(define html-unescape-entities
-  (map (lambda (entity)
-         (cons (cadr entity)
-               (string-ref (car entity) 0)))
-       (append html-escape-alist html-unescape-only-alist)))
+;; The entity tables live in (kracht html-entities): `html-escape-entities' is
+;; the list of characters worth writing as an entity, while
+;; `html-named-entities' is the full set of references the HTML standard
+;; defines.  `html-char-ref' and `html-entity-ref' look them up.
 
 (define (html-escape x)
   "Replace the characters of string X that are significant to HTML -- the
 ampersand, less-than, greater-than, double-quote and apostrophe characters --
-plus the accented Latin letters kracht renders as named entities, with their
-entity equivalents.
+plus every character in the HTML4 entity set (the accented Latin letters, and
+the common symbols from currency signs to Greek letters and arrows) with their
+named-entity equivalents.
 
 This covers two contexts: HTML element text, and a *quoted* attribute value.
 For an unquoted attribute, a JavaScript string, a CSS value or a URL, use
@@ -130,11 +55,10 @@ idempotent: `&amp;' becomes `&amp;amp;'.  Escape raw text exactly once and
 never escape output that has already been escaped."
   (call-with-output-string (lambda (port)
                              (string-for-each (lambda (c)
-                                                (let ((entity (assoc c
-                                                               html-escape-chars)))
-                                                  (display (if entity
-                                                               (cdr entity) c)
-                                                           port))) x))))
+                                                (let ((entity (html-char-ref c)))
+                                                  (display (if entity entity c)
+                                                           port)))
+                                              x))))
 
 (define (numeric-character-reference name)
   "Decode the full entity string NAME (for example `&#39;' or `&#x27;') into
@@ -156,9 +80,15 @@ reference (the digits must be non-empty, in range, and of the right radix)."
 
 (define (html-unescape x)
   "Convert HTML entities inside string X back into their original characters.
-Both named entities (`&lt;', `&aacute;') and numeric character references
-(`&#39;', `&#x27;') are decoded.  The string is processed in a single pass;
-unknown or malformed entities are copied through unchanged."
+
+Every named character reference the HTML standard defines is recognised, as long
+as it is written with its trailing semicolon -- `&lt;', `&aacute;', `&hellip;',
+even `&NotEqualTilde;' -- together with numeric references such as `&#39;' and
+`&#x27;'.  Some of those references stand for two code points, so the result can
+be longer than the text that was decoded.
+
+The string is processed in a single pass; an unknown or malformed entity is
+copied through unchanged."
   (let ((len (string-length x)))
     (call-with-output-string (lambda (port)
                                (let loop
@@ -171,8 +101,7 @@ unknown or malformed entities are copied through unchanged."
                                                (let* ((name (substring x i
                                                                        (+ semi
                                                                         1)))
-                                                      (entity (or (assoc-ref
-                                                                   html-unescape-entities
+                                                      (entity (or (html-entity-ref
                                                                    name)
                                                                   (numeric-character-reference
                                                                    name))))

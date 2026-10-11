@@ -30,6 +30,7 @@
   #:use-module (kracht lists)
   #:use-module (kracht sql)
   #:use-module (kracht web)
+  #:use-module (kracht html-entities)
   #:use-module (kracht io)
   ;; Standard-library re-exports that Guile's core does not already provide.
   #:use-module (ice-9 match)
@@ -121,6 +122,10 @@
                                         sql-parameterize
                                         html-escape
                                         html-unescape
+                                        html-entity-ref
+                                        html-char-ref
+                                        html-named-entities
+                                        html-escape-entities
                                         html-escape-context
                                         html-escape-unquoted-attribute
                                         html-escape-js-string
