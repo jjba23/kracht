@@ -1,0 +1,27 @@
+Source: kracht
+Section: lisp
+Priority: optional
+Maintainer: Josep Bigorra <jjbigorra@gmail.com>
+# veritas is produced by the same packaging batch; build it first.
+Build-Depends:
+ debhelper-compat (= 13),
+ guile-3.0,
+ guile-3.0-dev,
+ pkg-config,
+ veritas
+Standards-Version: 4.6.2
+Homepage: https://codeberg.org/jjba23/kracht
+Vcs-Git: https://codeberg.org/jjba23/kracht.git
+Vcs-Browser: https://codeberg.org/jjba23/kracht
+Rules-Requires-Root: no
+
+Package: kracht
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ guile-3.0
+Description: Prelude of helper procedures for Guile Scheme
+ Kracht is a prelude for Guile Scheme: helper procedures and re-exports of
+ the standard library for strings, lists, SQL, web answers and I/O, meant to
+ be imported alongside the modules a project already uses.
