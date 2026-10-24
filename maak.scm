@@ -17,7 +17,11 @@
 
 (define-module (maak)
   #:declarative? #t
-  #:use-module (maak maak))
+  #:use-module (maak maak)
+  ;; The container helpers are imported under a prefix because the tasks below
+  ;; are named the way maak exposes them on the command line -- `maak
+  ;; container-build' -- and a task may not shadow the helper it calls.
+  #:use-module ((maak container) #:prefix ct:))
 
 ;; ====== Maak file constants ======
 
@@ -39,18 +43,23 @@
 
 (define (fmt)
   "Format Scheme source code files according to the Guix style guide."
-  ($ '("find . -maxdepth 8 -name '*.scm'" "-type f -exec guix style -f {} \\;")))
+  (run (list "find" "." "-maxdepth" "8" "-name" "*.scm" "-type" "f"
+             "-exec" "guix" "style" "-f" "{}" ";")
+       #:verbose? #t))
 
 (define (repl)
   "Development REPL."
-  (manifest-shell '("guile -L ./src"
-                    "-c '((@ (ares server) run-nrepl-server))'")))
+  (manifest-shell (list "guile" "-L" "./src"
+                        "-c" "'((@ (ares server) run-nrepl-server))'")))
 
 (define (docs)
   "Generate technical API documentation for Kracht."
   (delete-file-recursively "doc")
-  (manifest-shell (list (~ "documenta api ./src/~a && " project-name)
-                        (~ "texi2any -v --html --css-ref=~a" api-docs-css-url)
+  ;; `documenta' writes the Texinfo tree and `texi2any' renders it: two calls,
+  ;; so a failure names the step that failed instead of an `&&' chain.
+  (manifest-shell (list "documenta" "api" (~ "./src/~a" project-name)))
+  (manifest-shell (list "texi2any" "-v" "--html"
+                        (~ "--css-ref=~a" api-docs-css-url)
                         "./doc/api/index.texi"))
   (mv "./index" "./doc/api-dist"))
 
@@ -59,24 +68,25 @@
   (docs)
   (remkdir-p (~ "~a/api-docs/~a" deploy-api-docs-dir project-name))
   (mv "doc/api-dist/*"
-      (~ "~a/api-docs/~a" deploy-api-docs-dir project-name))
+      (~ "~a/api-docs/~a" deploy-api-docs-dir project-name)
+      #:expand? #t)
   (delete-file-recursively "doc"))
 
 (define (test)
   "Run project's tests."
-  (manifest-shell (list "guile -L ./src -L ./test"
-                        "-c '((@ (veritas runner) run-tests))'")))
+  (manifest-shell (list "guile" "-L" "./src" "-L" "./test"
+                        "-c" "'((@ (veritas runner) run-tests))'")))
 
 (define (hot-reload)
   "Hot-reloading developer's setup."
-  (manifest-shell (list "watchexec 'maak test'"
+  (manifest-shell (list "watchexec" "'maak test'"
                         "--clear"
-                        (~ "--exts ~a"
-                           (string-join (map symbol->string
-                                             hot-reload-file-types) ","))
+                        "--exts" (string-join
+                                  (map symbol->string hot-reload-file-types)
+                                  ",")
                         "--on-busy-update=restart"
-                        "--shell bash"
-                        "--watch .")))
+                        "--shell" "bash"
+                        "--watch" ".")))
 
 (define (hr)
   "Alias to hot-reloading."
@@ -88,17 +98,19 @@
 
 (define (default)
   "Default task to be run, list available tasks."
-  ($ '("maak --list")))
+  (list-tasks))
 
 ;; ====== Container tasks ======
 
 (define (container-build)
   "Build the container image for kracht."
-  ($ '("podman build -t kracht .")))
+  (ct:container-build "." #:tag "kracht" #:verbose? #t))
 
 (define (container-run)
   "Run the container image for kracht."
-  ($ '("podman run --rm -it kracht:latest")))
+  (ct:container-run "kracht:latest"
+                    #:interactive? #t
+                    #:tty? #t))
 
 (define (package-docker)
   "Build the container image for kracht."

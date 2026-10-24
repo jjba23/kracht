@@ -20,7 +20,7 @@
 %global debug_package %{nil}
 
 Name:           kracht
-Version:        0.3.2
+Version:        0.3.3
 Release:        0
 Summary:        Prelude of helper procedures for Guile Scheme
 License:        LGPL-3.0-or-later
