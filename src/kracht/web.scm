@@ -15,6 +15,36 @@
 ;; You should have received a copy of the Lesser GNU General Public License
 ;; along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
+;;; Commentary:
+;;
+;; Escaping a value for the place it is written to.
+;;
+;; Escaping is a property of the position, not of the string: a value that ends
+;; up in element text, in a quoted attribute, in an unquoted attribute, inside a
+;; JavaScript string, in a CSS value or in a URL component each has its own way
+;; of ending the position early.  `html-escape-context' names the position and
+;; calls the encoder that matches it.
+;;
+;; ```mermaid
+;; flowchart LR
+;;   value["a value"] --> where{"where is it written?"}
+;;   where -- text or quoted attribute --> escape["html-escape"]
+;;   where -- unquoted attribute --> unquoted["html-escape-unquoted-attribute"]
+;;   where -- js-string --> js["html-escape-js-string"]
+;;   where -- css-value --> css["html-escape-css-value"]
+;;   where -- url --> url["uri-encode"]
+;;   escape --> document["the document"]
+;;   unquoted --> document
+;;   js --> document
+;;   css --> document
+;;   url --> document
+;; ```
+;;
+;; An unknown context is an error rather than a fallback, because a value
+;; escaped for the wrong position is a value that is not escaped at all.
+;;
+;;; Code:
+
 (define-module (kracht web)
   #:use-module (ice-9 format)
   #:use-module (ice-9 iconv)

@@ -26,7 +26,7 @@ If you like my work, please support me by [[https://bmc.link/jjbigorra][buying m
 
 You can find the technical Guile Scheme API documentation  for Kracht here, where all the code is documented:
 
-https://jointhefreeworld.org/api-docs/kracht/API.html
+https://jointhefreeworld.org/api-docs/kracht/index.html
 
 ** What Kracht writes, and what it passes through
 :PROPERTIES:
@@ -158,6 +158,13 @@ ends up.  ~html-escape~ covers HTML element text and quoted attribute values,
 but a value going into a JavaScript string, a CSS value, an unquoted attribute
 or a URL needs its own encoder -- each of those positions has a different way
 to end early.
+
+#+attr_html: :width 720 :alt One value, six escaping contexts, one encoder each
+[[file:resources/diagrams/escaping.svg]]
+
+The source of the diagram is [[file:resources/diagrams/escaping.mmd][resources/diagrams/escaping.mmd]];
+~maak diagrams~ renders every source under ~resources/diagrams~ to the SVG
+beside it.
 
 ~html-escape-context~ is the one to reach for, and it names the position
 rather than the technique:

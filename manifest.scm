@@ -17,6 +17,7 @@
 
 (use-modules (guix packages)
              (gnu)
+             (gnu packages)
              (guix utils)
              (guix git-download)
              (guix download)
@@ -65,7 +66,11 @@ concurrently by default.")
 
 (packages->manifest (list guile-next
                           guile-ares-rs
-                          guile-documenta
+                          ;; The API documentation generator.  It is defined
+                          ;; by the jointhefreeworld channel `channels.scm'
+                          ;; pins, so it is resolved by name against the
+                          ;; channels rather than imported from a module.
+                          (specification->package "guile-dokgen")
                           texinfo
                           watchexec
                           guile-veritas))

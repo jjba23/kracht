@@ -1,0 +1,12 @@
+flowchart LR
+  value["a value"] --> where{"where is it written?"}
+  where -- text or quoted attribute --> escape["html-escape"]
+  where -- unquoted attribute --> unquoted["html-escape-unquoted-attribute"]
+  where -- js-string --> js["html-escape-js-string"]
+  where -- css-value --> css["html-escape-css-value"]
+  where -- url --> url["uri-encode"]
+  escape --> document["the document"]
+  unquoted --> document
+  js --> document
+  css --> document
+  url --> document
