@@ -9,6 +9,8 @@
 #+attr_html: :width 160 :alt kracht logo
 [[file:logo.svg]]
 
+- 📖 *API reference:* [[https://jointhefreeworld.org/api-docs/kracht/index.html][Kracht API reference]]
+
 Utility methods and functionalities for Guile Scheme programming.
 
 kracht is a recursive acronym which stands for /KRACHT Reliable And Consistent Helper Tools/, and it also means means power/strength in the Dutch language.
