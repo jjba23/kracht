@@ -1,0 +1,66 @@
+# kracht
+#
+# SPDX-License-Identifier: MIT
+# Copyright © Josep Bigorra <jjbigorra@gmail.com>
+#
+# The pipeline in ci.yml runs the suite on Byggsteg, which reports it in its
+# own log.  This workflow is the part that has to run on the runner itself:
+# GitHub parses no test results of its own, so the JUnit document is handed to
+# the action that turns it into a check with annotations, and kept as an
+# artifact.  `nix develop' is the environment the flake names, and the Veritas
+# the suite is written against is the one `manifest.scm' pins.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: tests and JUnit report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Get the pinned Veritas
+        run: |
+          git clone --depth 1 --branch v0.9.0 \
+            https://github.com/jjba23/veritas.git "$RUNNER_TEMP/veritas"
+
+      # The runner writes the document itself, so what CI publishes is what the
+      # run produced rather than a conversion of its log.  A failing file no
+      # longer ends the run, so the whole suite is measured either way.
+      - name: Run the suite
+        id: suite
+        continue-on-error: true
+        run: |
+          nix develop --command env \
+            VERITAS_TEST_TYPE=unit \
+            VERITAS_JOBS=2 \
+            VERITAS_REPORTER=junit-reporter \
+            VERITAS_JUNIT_PATH=reports/junit/kracht-junit.xml \
+            guile -L ./src -L ./test -L "$RUNNER_TEMP/veritas/src" \
+                  -c '((@ (veritas runner) run-tests))'
+
+      - name: Publish the report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: reports/junit/kracht-junit.xml
+          check_name: kracht tests
+          detailed_summary: true
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: reports/junit/kracht-junit.xml
+
+      - name: Fail when the suite failed
+        if: steps.suite.outcome == 'failure'
+        run: exit 1
