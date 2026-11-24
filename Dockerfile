@@ -39,8 +39,8 @@ ENV LANG=C.UTF-8 \
 
 LABEL org.opencontainers.image.title="kracht" \
       org.opencontainers.image.description="Prelude of helper procedures for Guile Scheme" \
-      org.opencontainers.image.url="https://codeberg.org/jjba23/kracht" \
-      org.opencontainers.image.licenses="LGPL-3.0-or-later" \
+      org.opencontainers.image.url="https://github.com/jjba23/kracht" \
+      org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}"
 
 RUN --mount=type=cache,target=/var/cache/zypp \

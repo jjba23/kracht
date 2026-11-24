@@ -1,19 +1,7 @@
 ;; kracht
-
+;;
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; kracht is free software: you can redistribute it and/or modify
-;; it under the terms of the Lesser GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; kracht is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; Lesser GNU General Public License for more details.
-
-;; You should have received a copy of the Lesser GNU General Public License
-;; along with kracht.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (guix packages)
              (gnu)
@@ -43,7 +31,7 @@
      (origin
        (method git-fetch)
        (uri (git-reference
-             (url "https://codeberg.org/jjba23/veritas.git")
+             (url "https://github.com/jjba23/veritas.git")
              (commit (string-append "v" version))))
        (file-name (git-file-name name version))
        (sha256
@@ -55,7 +43,7 @@
     (native-inputs (list guile-3.0))
     (propagated-inputs (list guile-fibers
                              guile-json-4)) ;; for versions >= 2.0.0
-    (home-page "https://codeberg.org/jjba23/veritas")
+    (home-page "https://github.com/jjba23/veritas")
     (synopsis "Testing framework for Guile")
     (description
      "Veritas is a testing framework for Guile with an @acronym{EDSL,

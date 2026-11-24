@@ -23,8 +23,8 @@ Name:           kracht
 Version:        0.3.3
 Release:        0
 Summary:        Prelude of helper procedures for Guile Scheme
-License:        LGPL-3.0-or-later
-URL:            https://codeberg.org/jjba23/kracht
+License:        MIT
+URL:            https://github.com/jjba23/kracht
 Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  pkgconfig(guile-3.0)
 BuildRequires:  veritas
@@ -68,7 +68,7 @@ done
 VERITAS_TEST_TYPE=unit VERITAS_RUN_BENCHMARKS=false guile -L ./src -L ./test -c '((@ (veritas runner) run-tests))'
 
 %files
-%license COPYING
+%license LICENSE
 %doc README.org
 %dir %{_datadir}/guile
 %dir %{_datadir}/guile/site

@@ -1,19 +1,7 @@
 # kracht
-
-# Copyright © 2026 Josep Bigorra <jjbigorra@gmail.com>
-
-# kracht is free software: you can redistribute it and/or modify it under
-# the terms of the GNU Lesser General Public License as published by the Free
-# Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
 #
-# kracht is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
-# for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License along
-# with kracht. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: MIT
+# Copyright © Josep Bigorra <jjbigorra@gmail.com>
 
 # Maintainer: Josep Bigorra <jjbigorra@gmail.com>
 pkgname=kracht
@@ -21,8 +9,8 @@ pkgver=0.3.2
 pkgrel=1
 pkgdesc="Prelude of helper procedures for Guile Scheme"
 arch=('any')
-url="https://codeberg.org/jjba23/kracht"
-license=('LGPL-3.0-or-later')
+url="https://github.com/jjba23/kracht"
+license=('MIT')
 
 depends=(
   'guile'
@@ -38,7 +26,7 @@ checkdepends=(
 )
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('c89a438d9a511bd2d2ece30cad063f29506469d041035f7fb79592097186c4ad')
+sha256sums=('d9330ab2303e21ebb8d9a3b19467410c4efc9d4860a945d3bab395847eff6295')
 
 # veritas is produced by the same packaging batch; build it first.
 
@@ -89,6 +77,8 @@ package() {
   install -d "$pkgdir${ccache_dir}/kracht"
   cp -r "$srcdir/ccache/kracht/." "$pkgdir${ccache_dir}/kracht/"
 
+  # The pinned archive predates the MIT relicense and still ships COPYING; the
+  # next release's archive ships LICENSE, so swap this line with that bump.
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
   install -Dm644 README.org "$pkgdir/usr/share/doc/$pkgname/README.org"
 }
