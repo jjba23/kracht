@@ -17,7 +17,7 @@
 
 stdenv.mkDerivation {
   pname = "guile-kracht";
-  version = "0.4.0";
+  version = "0.4.2";
 
   src = ./.;
 
